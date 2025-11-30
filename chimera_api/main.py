@@ -20,7 +20,7 @@ async def chat_with_gemini(request: ChatRequest):
     if not api_key:
         raise HTTPException(status_code=500, detail="Server misconfigured: No API Key")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
     headers = {"Content-Type": "application/json", "X-goog-api-key": api_key}
     data = {"contents": [{"parts": [{"text": request.message}]}]}
 
