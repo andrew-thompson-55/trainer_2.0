@@ -38,7 +38,7 @@ def health_check():
 async def chat_with_gemini(request: ChatRequest):
     try:
         # 1. Initialize Model with Tools
-        model = genai.GenerativeModel(model_name="gemini-1.5-flash", tools=tools_schema)
+        model = genai.GenerativeModel(model_name="gemini-2.5-flash", tools=tools_schema)
 
         # 2. Define System Context WITH TIMEZONE
         # Calculate Eastern Time (UTC-5)
