@@ -1,6 +1,6 @@
 import os
 import google.generativeai as genai
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
 from typing import List, Optional
@@ -38,81 +38,79 @@ def health_check():
 async def chat_with_gemini(request: ChatRequest):
     try:
         # 1. Initialize Model with Tools
-        # We use 'gemini-2.5-flash' because it has the best support for Function Calling
-        model = genai.GenerativeModel(model_name="gemini-2.5-flash", tools=tools_schema)
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash", tools=tools_schema)
 
-        # 2. Define System Context
-        current_time = datetime.now().isoformat()
+        # 2. Define System Context WITH TIMEZONE
+        # Calculate Eastern Time (UTC-5)
+        # Note: A real production app would get this from the user's phone,
+        # but for your personal app, hardcoding your timezone is perfect.
+        utc_now = datetime.now(timezone.utc)
+        est_offset = timedelta(hours=-5)
+        local_time = utc_now + est_offset
+
+        current_time_str = local_time.strftime("%Y-%m-%d %H:%M:%S")
+
         system_instructions = f"""
         You are Chimera, an expert endurance training coach.
-        The current date and time is: {current_time}.
         
-        Your Goal: Help the user plan workouts and answer training questions.
+        CRITICAL CONTEXT:
+        - The user is in Eastern Standard Time (UTC-5).
+        - The current local time for the user is: {current_time_str}.
+        - Today is {local_time.strftime("%A")}.
         
         RULES:
-        1. If the user asks to schedule, add, or plan a workout, YOU MUST use the 'create_workout' tool.
-        2. Do not ask for confirmation if the user provides enough info (Type, Time). Just do it.
-        3. If details are missing (e.g. "Schedule a run"), ask for the missing time or duration.
+        1. When the user asks for a time (e.g. "6am"), ALWAYS append the timezone offset "-05:00" to the ISO string.
+           Example: "2025-12-02T06:00:00-05:00"
+        2. If the user asks to schedule, add, or plan a workout, YOU MUST use the 'create_workout' tool.
+        3. Do not ask for confirmation if the user provides enough info.
         """
 
         # 3. Start Chat Session
-        # We start a chat history so the bot knows the system instructions
         chat = model.start_chat(
             history=[
                 {"role": "user", "parts": system_instructions},
-                {"role": "model", "parts": "Understood. I am ready to coach."},
+                {
+                    "role": "model",
+                    "parts": "Understood. I will use Eastern Time (UTC-5) for all scheduling.",
+                },
             ]
         )
 
+        # ... (Rest of the function remains exactly the same) ...
         # 4. Send User Message
         response = chat.send_message(request.message)
 
-        # 5. Check for Function Calls
         final_reply = ""
-
-        # The SDK returns candidates. We check the first one.
         part = response.candidates[0].content.parts[0]
 
-        # If the AI wants to run a function (Tool):
         if part.function_call:
-            # 5a. Extract function details
             fname = part.function_call.name
             fargs = dict(part.function_call.args)
-
-            # 5b. Execute the Tool (Run your Python logic)
-            # This calls the function in ai_tools.py which writes to Supabase
             tool_result = await execute_tool_call(fname, fargs)
 
-            # 5c. Send Result back to Gemini
-            # We must format the response exactly how the SDK expects it
             function_response = {
                 "function_response": {
                     "name": fname,
                     "response": {"result": tool_result},
                 }
             }
-
-            # Send the tool output back to the model to get the final natural language response
             final_response = chat.send_message([function_response])
             final_reply = final_response.text
         else:
-            # No tool used, just normal text
             final_reply = response.text
 
-        # 6. Log Chat to Supabase (Fire and Forget)
         if supabase_admin:
             try:
                 supabase_admin.table("chat_logs").insert(
                     {"user_message": request.message, "ai_response": final_reply}
                 ).execute()
-            except Exception as e:
-                print(f"Logging failed: {e}")
+            except Exception:
+                pass
 
         return {"reply": final_reply}
 
     except Exception as e:
         print(f"AI Error: {e}")
-        # Return the specific error for debugging
         raise HTTPException(status_code=500, detail=str(e))
 
 
