@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, Platform, StatusBar, View } from 'react-native';
+import { StyleSheet, SafeAreaView, Platform, StatusBar, View , KeyboardAvoidingView} from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
 
 // !!! PASTE YOUR RENDER URL HERE !!!
@@ -68,10 +68,14 @@ export default function HomeScreen() {
         messages={messages}
         onSend={messages => onSend(messages)}
         user={{
-          _id: 1, // Your User ID
+          _id: 1,
         }}
         placeholder="Ask about your training..."
         showUserAvatar
+        alwaysShowSend
+        // --- ADD THESE LINES FOR ANDROID FIX ---
+        keyboardShouldPersistTaps="never"
+        bottomOffset={Platform.OS === 'android' ? 45 : 0} 
       />
     </SafeAreaView>
   );
