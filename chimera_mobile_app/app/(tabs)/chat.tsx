@@ -1,12 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, Platform, StatusBar, View , KeyboardAvoidingView} from 'react-native';
+import { StyleSheet, SafeAreaView, Platform, View, KeyboardAvoidingView } from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
 
-// !!! PASTE YOUR RENDER URL HERE !!!
-// Example: 'https://chimera-backend.onrender.com/v1/chat'
-const BACKEND_URL = 'https://trainer-2-0.onrender.com/v1/chat';
+// !!! ENSURE THIS IS YOUR RENDER URL !!!
+const BACKEND_URL = 'https://trainer-2-0.onrender.com/v1/chat'; 
 
-export default function HomeScreen() {
+export default function ChatScreen() {
   const [messages, setMessages] = useState<any[]>([]);
 
   useEffect(() => {
@@ -18,7 +17,7 @@ export default function HomeScreen() {
         user: {
           _id: 2,
           name: 'Chimera',
-          avatar: 'https://placeimg.com/140/140/any', // Placeholder avatar
+          avatar: 'https://placeimg.com/140/140/any',
         },
       },
     ]);
@@ -38,9 +37,16 @@ export default function HomeScreen() {
     })
     .then(response => response.json())
     .then(data => {
+        let responseText = "Communication Error.";
+        if (data.reply) {
+            responseText = data.reply;
+        } else if (data.detail) {
+            responseText = "System Error: " + data.detail;
+        }
+
         const aiMessage = {
             _id: Math.random().toString(),
-            text: data.reply,
+            text: responseText,
             createdAt: new Date(),
             user: {
                 _id: 2,
@@ -54,7 +60,7 @@ export default function HomeScreen() {
         console.error(error);
         const errorMessage = {
             _id: Math.random().toString(),
-            text: "Error connecting to cloud node. Check your internet or backend URL.",
+            text: "Error connecting to cloud node.",
             createdAt: new Date(),
             user: { _id: 2, name: 'System' },
         };
@@ -64,19 +70,28 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <GiftedChat
-        messages={messages}
-        onSend={messages => onSend(messages)}
-        user={{
-          _id: 1,
-        }}
-        placeholder="Ask about your training..."
-        showUserAvatar
-        alwaysShowSend
-        // --- ADD THESE LINES FOR ANDROID FIX ---
-        keyboardShouldPersistTaps="never"
-        bottomOffset={Platform.OS === 'android' ? 45 : 0} 
-      />
+      {/* The Fix: Manually handle the keyboard offset. 
+         We offset by ~90px on Android to account for the Tab Bar height.
+      */}
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 90}
+      >
+        <GiftedChat
+          messages={messages}
+          onSend={messages => onSend(messages)}
+          user={{
+            _id: 1, // Your User ID
+          }}
+          placeholder="Ask about your training..."
+          showUserAvatar
+          alwaysShowSend
+          // On Android, we disable GiftedChat's built-in handling 
+          // because we are doing it manually with the wrapper above.
+          keyboardShouldPersistTaps="never"
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -85,6 +100,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    // On Android, SafeAreaView sometimes needs a little top padding 
+    paddingTop: Platform.OS === 'android' ? 30 : 0, 
   },
 });
