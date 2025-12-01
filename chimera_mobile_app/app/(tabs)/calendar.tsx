@@ -1,25 +1,24 @@
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { api } from '../../services/api';
-import { useFocusEffect } from 'expo-router';
-import { format } from 'date-fns';
+import { useFocusEffect, useRouter } from 'expo-router'; // <--- Added useRouter
+import { format, parseISO } from 'date-fns';
 
-// 1. Define your Color Palette
-const COLORS = {
-  run: '#FF3B30',      // Red for Run
-  bike: '#007AFF',     // Blue
-  swim: '#5AC8FA',     // Cyan
-  strength: '#AF52DE', // Purple
-  other: '#8E8E93'     // Gray
+const COLORS: any = {
+  run: '#FF3B30',      
+  bike: '#007AFF',     
+  swim: '#5AC8FA',     
+  strength: '#AF52DE', 
+  other: '#8E8E93'     
 };
 
 export default function CalendarScreen() {
+  const router = useRouter(); // <--- Initialize Router
   const [selectedDate, setSelectedDate] = useState('');
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [markedDates, setMarkedDates] = useState({});
 
-  // 2. Fetch Data when tab opens
   useFocusEffect(
     useCallback(() => {
       async function loadData() {
@@ -27,21 +26,19 @@ export default function CalendarScreen() {
           const data = await api.getWorkouts();
           setWorkouts(data);
           
-          // 3. Transform API data into Calendar "dots"
-          const marked = {};
+          const marked: any = {};
           
-          data.forEach(workout => {
-            // Convert ISO string (2025-12-01T...) to YYYY-MM-DD
-            const dateKey = workout.start_time.split('T')[0];
-            
-            // Pick color based on activity type (default to gray if unknown)
-            const dotColor = COLORS[workout.activity_type] || COLORS.other;
-
-            marked[dateKey] = {
-              marked: true,
-              dotColor: dotColor
-            };
-          });
+          if (data && Array.isArray(data)) {
+            data.forEach((workout: any) => {
+                const dateKey = workout.start_time.split('T')[0];
+                const dotColor = COLORS[workout.activity_type] || COLORS.other;
+    
+                marked[dateKey] = {
+                  marked: true,
+                  dotColor: dotColor
+                };
+            });
+          }
 
           setMarkedDates(marked);
         } catch (e) {
@@ -52,10 +49,13 @@ export default function CalendarScreen() {
     }, [])
   );
 
-  // Filter workouts to show only the selected day's list
   const selectedWorkouts = workouts.filter(w => 
     w.start_time.startsWith(selectedDate)
   );
+
+  const formattedSelectedDate = selectedDate 
+    ? format(new Date(selectedDate + 'T12:00:00'), 'EEEE, MMMM do') 
+    : 'Select a date';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -65,14 +65,13 @@ export default function CalendarScreen() {
       
       <View style={styles.calendarContainer}>
         <Calendar
-          onDayPress={day => setSelectedDate(day.dateString)}
-          // Combine our data dots with the blue circle for the "selected" day
+          onDayPress={(day: any) => setSelectedDate(day.dateString)}
           markedDates={{
             ...markedDates,
             [selectedDate]: { 
               ...(markedDates[selectedDate] || {}), 
               selected: true, 
-              selectedDotColor: 'white' // Dot turns white if selected
+              selectedDotColor: 'white' 
             }
           }}
           theme={{
@@ -87,21 +86,33 @@ export default function CalendarScreen() {
       </View>
 
       <ScrollView style={styles.summaryContainer}>
-        <Text style={styles.summaryTitle}>
-            {selectedDate ? format(new Date(selectedDate), 'EEEE, MMMM do') : 'Select a date'}
-        </Text>
+        <Text style={styles.summaryTitle}>{formattedSelectedDate}</Text>
         
         {selectedWorkouts.length > 0 ? (
-            selectedWorkouts.map(w => (
-                <View key={w.id} style={styles.workoutCard}>
+            selectedWorkouts.map((w: any) => (
+                <TouchableOpacity 
+                    key={w.id} 
+                    style={styles.workoutCard}
+                    onPress={() => router.push({
+                        pathname: "/workout_details",
+                        params: {
+                            id: w.id,
+                            title: w.title,
+                            description: w.description || '',
+                            activity_type: w.activity_type,
+                            start_time: w.start_time,
+                            status: w.status
+                        }
+                    })}
+                >
                     <View style={[styles.colorStrip, { backgroundColor: COLORS[w.activity_type] || COLORS.other }]} />
                     <View style={styles.workoutContent}>
                         <Text style={styles.workoutTitle}>{w.title}</Text>
                         <Text style={styles.workoutMeta}>
-                            {format(new Date(w.start_time), 'h:mm a')} • {w.activity_type.toUpperCase()}
+                            {format(parseISO(w.start_time), 'h:mm a')} • {w.activity_type.toUpperCase()}
                         </Text>
                     </View>
-                </View>
+                </TouchableOpacity>
             ))
         ) : (
             <Text style={styles.summaryText}>
@@ -121,8 +132,6 @@ const styles = StyleSheet.create({
   summaryContainer: { padding: 20, marginTop: 20 },
   summaryTitle: { fontSize: 20, fontWeight: '600', marginBottom: 16, color: '#333' },
   summaryText: { fontSize: 16, color: '#8E8E93', fontStyle: 'italic' },
-  
-  // New Card Styles
   workoutCard: { flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 12, marginBottom: 12, overflow: 'hidden' },
   colorStrip: { width: 6 },
   workoutContent: { padding: 16 },
