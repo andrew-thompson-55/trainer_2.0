@@ -1,86 +1,74 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, Platform, StatusBar, View } from 'react-native';
-import { GiftedChat } from 'react-native-gifted-chat';
+import React from 'react';
+import { StyleSheet, View, Text, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
+import { format } from 'date-fns';
 
-// !!! PASTE YOUR RENDER URL HERE !!!
-// Example: 'https://chimera-backend.onrender.com/v1/chat'
-const BACKEND_URL = 'https://trainer-2-0.onrender.com/v1/chat';
+import { api } from '../../services/api';
+import { useFocusEffect } from 'expo-router'; // Reloads data when tab opens
 
-export default function HomeScreen() {
-  const [messages, setMessages] = useState<any[]>([]);
+// ... inside component ...
+const [workouts, setWorkouts] = useState([]);
 
-  useEffect(() => {
-    setMessages([
-      {
-        _id: 1,
-        text: 'System Online. Ready to train.',
-        createdAt: new Date(),
-        user: {
-          _id: 2,
-          name: 'Chimera',
-          avatar: 'https://placeimg.com/140/140/any', // Placeholder avatar
-        },
-      },
-    ]);
-  }, []);
+// Use useFocusEffect to refresh whenever you look at the tab
+useFocusEffect(
+  useCallback(() => {
+    async function loadData() {
+      const data = await api.getWorkouts();
+      setWorkouts(data);
+    }
+    loadData();
+  }, [])
+);
 
-  const onSend = useCallback((newMessages = []) => {
-    setMessages(previousMessages => GiftedChat.append(previousMessages, newMessages));
-    const userMessage = newMessages[0].text;
+// ... update your map function to use 'workouts' instead of 'TODAY_WORKOUTS' ...
 
-    // Call the Cloud API
-    fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMessage }),
-    })
-    .then(response => response.json())
-    .then(data => {
-        const aiMessage = {
-            _id: Math.random().toString(),
-            text: data.reply,
-            createdAt: new Date(),
-            user: {
-                _id: 2,
-                name: 'Chimera',
-                avatar: 'https://placeimg.com/140/140/any',
-            },
-        };
-        setMessages(previousMessages => GiftedChat.append(previousMessages, aiMessage));
-    })
-    .catch(error => {
-        console.error(error);
-        const errorMessage = {
-            _id: Math.random().toString(),
-            text: "Error connecting to cloud node. Check your internet or backend URL.",
-            createdAt: new Date(),
-            user: { _id: 2, name: 'System' },
-        };
-        setMessages(previousMessages => GiftedChat.append(previousMessages, errorMessage));
-    });
-  }, []);
+export default function ItineraryScreen() {
+  const todayDate = format(new Date(), 'EEEE, MMMM do');
 
   return (
     <SafeAreaView style={styles.container}>
-      <GiftedChat
-        messages={messages}
-        onSend={messages => onSend(messages)}
-        user={{
-          _id: 1, // Your User ID
-        }}
-        placeholder="Ask about your training..."
-        showUserAvatar
-      />
+      <View style={styles.header}>
+        <Text style={styles.dateText}>{todayDate}</Text>
+        <Text style={styles.titleText}>Today's Plan</Text>
+      </View>
+
+      <ScrollView style={styles.content}>
+        {TODAY_WORKOUTS.map((workout) => (
+          <View key={workout.id} style={styles.card}>
+            <View style={styles.timeContainer}>
+              <Text style={styles.timeText}>{workout.time}</Text>
+              {workout.status === 'completed' && <View style={styles.lineCompleted} />}
+              {workout.status === 'pending' && <View style={styles.linePending} />}
+            </View>
+            
+            <View style={[styles.details, workout.status === 'completed' ? styles.detailsCompleted : null]}>
+              <Text style={styles.workoutTitle}>{workout.title}</Text>
+              <Text style={styles.workoutMeta}>{workout.type} • {workout.duration}</Text>
+            </View>
+            
+            <TouchableOpacity style={styles.checkbox}>
+              <Text>{workout.status === 'completed' ? '✅' : '⬜'}</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
+  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  dateText: { fontSize: 14, color: '#8E8E93', fontWeight: '600', textTransform: 'uppercase' },
+  titleText: { fontSize: 34, fontWeight: 'bold', color: '#000' },
+  content: { padding: 16 },
+  card: { flexDirection: 'row', marginBottom: 20 },
+  timeContainer: { width: 70, alignItems: 'center' },
+  timeText: { fontSize: 12, color: '#8E8E93', marginBottom: 4 },
+  lineCompleted: { width: 2, flex: 1, backgroundColor: '#34C759' },
+  linePending: { width: 2, flex: 1, backgroundColor: '#E5E5EA' },
+  details: { flex: 1, backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginRight: 12, shadowColor: "#000", shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4 },
+  detailsCompleted: { opacity: 0.6 },
+  workoutTitle: { fontSize: 17, fontWeight: '600', marginBottom: 4 },
+  workoutMeta: { fontSize: 13, color: '#8E8E93' },
+  checkbox: { justifyContent: 'center' },
 });

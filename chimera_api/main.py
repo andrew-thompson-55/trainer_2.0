@@ -4,6 +4,11 @@ from fastapi import FastAPI, HTTPException
 from schemas import ChatRequest
 from dotenv import load_dotenv
 
+from typing import List, Optional
+from uuid import UUID
+from schemas import WorkoutCreate, WorkoutResponse
+from services import workout_service
+
 load_dotenv()
 
 app = FastAPI()
@@ -71,3 +76,29 @@ async def chat_with_gemini(request: ChatRequest):
     except Exception as e:
         print(f"Unexpected Error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+
+
+# --- WORKOUT ENDPOINTS ---
+
+
+@app.post("/v1/workouts", response_model=WorkoutResponse, tags=["Workouts"])
+async def create_workout(workout: WorkoutCreate):
+    return await workout_service.create_workout(workout)
+
+
+@app.get("/v1/workouts", response_model=List[WorkoutResponse], tags=["Workouts"])
+async def get_workouts(
+    start_date: Optional[str] = None, end_date: Optional[str] = None
+):
+    return await workout_service.get_workouts(start_date, end_date)
+
+
+@app.patch("/v1/workouts/{workout_id}", tags=["Workouts"])
+async def update_workout(workout_id: UUID, workout: dict):
+    return await workout_service.update_workout(workout_id, workout)
+
+
+@app.delete("/v1/workouts/{workout_id}", tags=["Workouts"])
+async def delete_workout(workout_id: UUID):
+    await workout_service.delete_workout(workout_id)
+    return {"status": "deleted"}
