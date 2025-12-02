@@ -15,31 +15,17 @@ export default function SettingsScreen() {
   const handleConnectStrava = async () => {
     setLoading(true);
     try {
-      // 1. Ask Expo "Where do I live right now?"
-      // In Expo Go, this is 'exp://...'. In APK, this is 'chimera://...'
-      const returnUrl = Linking.createURL('redirect');
-      console.log("Return URL:", returnUrl); // Debug log
-
-      // 2. The Bounce URL (Your Render Backend)
+      const returnUrl = Linking.createURL('redirect'); // This will point to app/redirect.tsx
       const backendRedirect = `${API_BASE}/integrations/strava/redirect`;
       
-      // 3. Construct Auth URL
-      // WE PASS 'returnUrl' INSIDE THE 'state' PARAMETER
       const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(backendRedirect)}&approval_prompt=force&scope=read,activity:read_all&state=${encodeURIComponent(returnUrl)}`;
       
-      // 4. Open Browser and wait for the return
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, returnUrl);
-
-      if (result.type === 'success' && result.url) {
-        const params = new URL(result.url).searchParams;
-        const code = params.get('code');
-        if (code) {
-            await sendCodeToBackend(code);
-        }
-      }
+      // Just open the browser. We don't wait for a result here.
+      // The app will re-open via Deep Link to 'redirect.tsx' when done.
+      await WebBrowser.openBrowserAsync(authUrl);
+      
     } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "Failed to connect to Strava.");
+      Alert.alert("Error", "Failed to launch browser.");
     } finally {
       setLoading(false);
     }

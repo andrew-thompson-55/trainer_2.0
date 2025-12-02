@@ -13,16 +13,29 @@ async def exchange_and_store_token(code: str):
     """
     Exchanges the temporary code for permanent tokens and saves them to DB.
     """
+    # This MUST match exactly what you sent in the frontend authUrl
+    # We construct it dynamically based on the environment to be safe,
+    # or you can hardcode "https://trainer-2-0.onrender.com/v1/integrations/strava/redirect"
+    redirect_uri = "https://trainer-2-0.onrender.com/v1/integrations/strava/redirect"
+
     payload = {
         "client_id": os.getenv("STRAVA_CLIENT_ID"),
         "client_secret": os.getenv("STRAVA_CLIENT_SECRET"),
         "code": code,
         "grant_type": "authorization_code",
+        "redirect_uri": redirect_uri,  # <--- CRITICAL MISSING PIECE
     }
+
+    print(f"Swapping code for token with redirect_uri: {redirect_uri}")
 
     # 1. Call Strava
     response = requests.post(STRAVA_AUTH_URL, data=payload)
-    response.raise_for_status()
+
+    # Debugging: Print error if it fails
+    if not response.ok:
+        print(f"Strava Exchange Failed: {response.text}")
+        response.raise_for_status()
+
     data = response.json()
 
     # 2. Save to Supabase (Using Hardcoded ID for now)
