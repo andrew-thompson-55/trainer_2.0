@@ -38,7 +38,7 @@ class DailyLogBase(BaseModel):
     rem_sleep: Optional[float] = None
     resources_percent: Optional[int] = None
     hrv_score: Optional[int] = None
-    resting_heart_rate: Optional[int] = None
+    min_sleep_hr: Optional[int] = None
     motivation: Optional[int] = None
     soreness: Optional[int] = None
     stress: Optional[int] = None
