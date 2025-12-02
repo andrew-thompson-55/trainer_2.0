@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict, Any
 from uuid import UUID
 from pydantic import BaseModel, Field
 from datetime import date as date_type
@@ -67,4 +67,4 @@ class StravaWebhookEvent(BaseModel):
     object_type: Literal["activity", "athlete"]
     owner_id: int
     subscription_id: int
-    updates: Optional[dict[str, Any]] = None
+    updates: Optional[Dict[str, Any]] = None
