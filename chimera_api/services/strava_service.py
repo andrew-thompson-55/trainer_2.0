@@ -9,36 +9,54 @@ STRAVA_AUTH_URL = "https://www.strava.com/oauth/token"
 STRAVA_API_URL = "https://www.strava.com/api/v3"
 
 
+# ... imports ...
+
+
 async def exchange_and_store_token(code: str):
     """
-    Exchanges the temporary code for permanent tokens and saves them to DB.
+    Exchanges the temporary code for permanent tokens.
+    VERBOSE DEBUGGING MODE
     """
-    # This MUST match exactly what you sent in the frontend authUrl
-    # We construct it dynamically based on the environment to be safe,
-    # or you can hardcode "https://trainer-2-0.onrender.com/v1/integrations/strava/redirect"
+    # 1. Load Vars
+    c_id = os.getenv("STRAVA_CLIENT_ID")
+    c_secret = os.getenv("STRAVA_CLIENT_SECRET")
+
+    # 2. Hardcode the Redirect URI to match the Frontend exactly
+    # (Ensure no trailing slashes in your Render Env SUPABASE_URL either, just to be safe)
     redirect_uri = "https://trainer-2-0.onrender.com/v1/integrations/strava/redirect"
 
+    # 3. DEBUG PRINT (Masked)
+    print(f"--- STARTING TOKEN EXCHANGE ---")
+    print(f"Code received: {code}")
+    print(f"Using Client ID: '{c_id}' (Length: {len(c_id) if c_id else 0})")
+    print(
+        f"Using Secret: '{c_secret[:4]}...' (Length: {len(c_secret) if c_secret else 0})"
+    )
+    print(f"Using Redirect URI: '{redirect_uri}'")
+
     payload = {
-        "client_id": os.getenv("STRAVA_CLIENT_ID"),
-        "client_secret": os.getenv("STRAVA_CLIENT_SECRET"),
+        "client_id": c_id,
+        "client_secret": c_secret,
         "code": code,
         "grant_type": "authorization_code",
-        "redirect_uri": redirect_uri,  # <--- CRITICAL MISSING PIECE
+        "redirect_uri": redirect_uri,
     }
 
-    print(f"Swapping code for token with redirect_uri: {redirect_uri}")
-
-    # 1. Call Strava
+    # 4. Call Strava
     response = requests.post(STRAVA_AUTH_URL, data=payload)
 
-    # Debugging: Print error if it fails
+    # 5. DEBUG RESPONSE
+    print(f"Strava Status Code: {response.status_code}")
+    print(f"Strava Raw Response: {response.text}")  # <--- THIS IS THE GOLD
+
     if not response.ok:
-        print(f"Strava Exchange Failed: {response.text}")
-        response.raise_for_status()
+        # We raise the actual text so you see it in the app alert if possible, or at least in logs
+        raise Exception(f"Strava Refused: {response.text}")
 
     data = response.json()
 
-    # 2. Save to Supabase (Using Hardcoded ID for now)
+    # 6. Save to Supabase
+    print("Saving to Supabase...")
     supabase_admin.table("user_settings").upsert(
         {
             "user_id": HARDCODED_USER_ID,
@@ -48,6 +66,7 @@ async def exchange_and_store_token(code: str):
         }
     ).execute()
 
+    print("--- SUCCESS ---")
     return {"status": "success", "athlete_id": data["athlete"]["id"]}
 
 
