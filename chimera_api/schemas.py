@@ -67,4 +67,4 @@ class StravaWebhookEvent(BaseModel):
     object_type: Literal["activity", "athlete"]
     owner_id: int
     subscription_id: int
-    updates: Optional[dict[str, any]] = None
+    updates: Optional[dict[str, Any]] = None
