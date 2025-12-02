@@ -205,41 +205,50 @@ async def webhook_strava_event(payload: StravaWebhookEvent):
 # --- STRAVA REDIRECT BOUNCER ---
 
 
-# ...
-
-
 @app.get("/v1/integrations/strava/redirect", tags=["Integrations"])
-async def strava_bounce(
-    code: str, scope: str = None, state: str = None, error: str = None
-):
+async def strava_bounce(code: str = None, state: str = None, error: str = None):
     """
-    Strava sends the user here. We bounce them back to the mobile app schema.
+    Strava sends the user here.
+    We read the 'state' param to know exactly where to bounce them back to
+    (supports both Expo Go and Production builds).
     """
+    # Default fallback if state is missing
+    mobile_base_url = "chimera://redirect"
+
+    # Use the provided state as the return URL if it exists
+    if state:
+        mobile_base_url = state
+
     if error:
-        mobile_url = f"chimera://redirect?error={error}"
-        return HTMLResponse(
-            f"<h1>Error: {error}</h1><a href='{mobile_url}'>Back to App</a>"
-        )
+        final_url = f"{mobile_base_url}?error={error}"
+        message = f"Error: {error}"
+        color = "#FF3B30"
+    else:
+        # Append the code to the dynamic URL
+        # Handle cases where the URL might already have query params (like expo go often does)
+        separator = "&" if "?" in mobile_base_url else "?"
+        final_url = f"{mobile_base_url}{separator}code={code}"
+        message = "Strava Connected!"
+        color = "#FC4C02"
 
-    mobile_url = f"chimera://redirect?code={code}"
-
-    # Return a clickable page to ensure the deep link works on all browsers
     html_content = f"""
     <html>
         <head>
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-                body {{ font-family: sans-serif; text-align: center; padding: 20px; }}
-                a {{ display: inline-block; background: #FC4C02; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; }}
+                body {{ font-family: sans-serif; text-align: center; padding: 40px 20px; background-color: #f2f2f7; }}
+                .card {{ background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
+                a {{ display: block; background: {color}; color: white; padding: 16px; text-decoration: none; border-radius: 12px; font-weight: bold; }}
             </style>
         </head>
         <body>
-            <h2>Strava Connected!</h2>
-            <p>Click below to return to Chimera.</p>
-            <a href="{mobile_url}">Open App</a>
+            <div class="card">
+                <h2>{message}</h2>
+                <p>Click below to return to the app.</p>
+                <a href="{final_url}">Return to App</a>
+            </div>
             <script>
-                // Try to redirect automatically after 1 second
-                setTimeout(function() {{ window.location.href = "{mobile_url}"; }}, 1000);
+                setTimeout(function() {{ window.location.href = "{final_url}"; }}, 100);
             </script>
         </body>
     </html>

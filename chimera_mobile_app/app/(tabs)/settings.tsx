@@ -15,28 +15,30 @@ export default function SettingsScreen() {
   const handleConnectStrava = async () => {
     setLoading(true);
     try {
-      // 1. The Bounce URL (Points to your backend)
-      // This matches the Strava Domain setting, so Strava allows it.
+      // 1. Ask Expo "Where do I live right now?"
+      // In Expo Go, this is 'exp://...'. In APK, this is 'chimera://...'
+      const returnUrl = Linking.createURL('redirect');
+      console.log("Return URL:", returnUrl); // Debug log
+
+      // 2. The Bounce URL (Your Render Backend)
       const backendRedirect = `${API_BASE}/integrations/strava/redirect`;
       
-      // 2. The Custom Scheme (Where the backend will bounce to)
-      const mobileScheme = 'chimera://redirect';
+      // 3. Construct Auth URL
+      // WE PASS 'returnUrl' INSIDE THE 'state' PARAMETER
+      const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(backendRedirect)}&approval_prompt=force&scope=read,activity:read_all&state=${encodeURIComponent(returnUrl)}`;
       
-      // 3. Open Strava Auth
-      const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${backendRedirect}&approval_prompt=force&scope=read,activity:read_all`;
-      
-      // We wait for the 'chimera://' return
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, mobileScheme);
+      // 4. Open Browser and wait for the return
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, returnUrl);
 
       if (result.type === 'success' && result.url) {
         const params = new URL(result.url).searchParams;
         const code = params.get('code');
-
         if (code) {
             await sendCodeToBackend(code);
         }
       }
     } catch (error) {
+      console.error(error);
       Alert.alert("Error", "Failed to connect to Strava.");
     } finally {
       setLoading(false);
