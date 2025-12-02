@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Query
 from dotenv import load_dotenv
 from typing import List, Optional
 from uuid import UUID
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 
 # Internal modules
 # ADDED: StravaWebhookEvent, StravaChallengeResponse
@@ -203,6 +203,11 @@ async def webhook_strava_event(payload: StravaWebhookEvent):
 
 
 # --- STRAVA REDIRECT BOUNCER ---
+
+
+# ...
+
+
 @app.get("/v1/integrations/strava/redirect", tags=["Integrations"])
 async def strava_bounce(
     code: str, scope: str = None, state: str = None, error: str = None
@@ -211,6 +216,32 @@ async def strava_bounce(
     Strava sends the user here. We bounce them back to the mobile app schema.
     """
     if error:
-        return RedirectResponse(f"chimera://redirect?error={error}")
+        mobile_url = f"chimera://redirect?error={error}"
+        return HTMLResponse(
+            f"<h1>Error: {error}</h1><a href='{mobile_url}'>Back to App</a>"
+        )
 
-    return RedirectResponse(f"chimera://redirect?code={code}")
+    mobile_url = f"chimera://redirect?code={code}"
+
+    # Return a clickable page to ensure the deep link works on all browsers
+    html_content = f"""
+    <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body {{ font-family: sans-serif; text-align: center; padding: 20px; }}
+                a {{ display: inline-block; background: #FC4C02; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; }}
+            </style>
+        </head>
+        <body>
+            <h2>Strava Connected!</h2>
+            <p>Click below to return to Chimera.</p>
+            <a href="{mobile_url}">Open App</a>
+            <script>
+                // Try to redirect automatically after 1 second
+                setTimeout(function() {{ window.location.href = "{mobile_url}"; }}, 1000);
+            </script>
+        </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)

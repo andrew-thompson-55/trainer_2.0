@@ -15,22 +15,24 @@ export default function SettingsScreen() {
   const handleConnectStrava = async () => {
     setLoading(true);
     try {
-      // 1. Define the Redirect URL (chimera://redirect)
-      const redirectUrl = Linking.createURL('redirect');
+      // 1. The Bounce URL (Points to your backend)
+      // This matches the Strava Domain setting, so Strava allows it.
+      const backendRedirect = `${API_BASE}/integrations/strava/redirect`;
       
-      // 2. Open Strava Auth Page
-      const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUrl}&approval_prompt=force&scope=read,activity:read_all`;
+      // 2. The Custom Scheme (Where the backend will bounce to)
+      const mobileScheme = 'chimera://redirect';
       
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUrl);
+      // 3. Open Strava Auth
+      const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${backendRedirect}&approval_prompt=force&scope=read,activity:read_all`;
+      
+      // We wait for the 'chimera://' return
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, mobileScheme);
 
-      // 3. Handle the Result
       if (result.type === 'success' && result.url) {
-        // Extract the 'code' from the URL
         const params = new URL(result.url).searchParams;
         const code = params.get('code');
 
         if (code) {
-            // 4. Send code to Backend
             await sendCodeToBackend(code);
         }
       }
