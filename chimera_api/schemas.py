@@ -68,3 +68,7 @@ class StravaWebhookEvent(BaseModel):
     owner_id: int
     subscription_id: int
     updates: Optional[Dict[str, Any]] = None
+
+
+class StravaAuthCode(BaseModel):
+    code: str

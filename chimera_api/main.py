@@ -16,6 +16,7 @@ from schemas import (
     DailyLogResponse,
     StravaWebhookEvent,
     StravaChallengeResponse,
+    StravaAuthCode,
 )
 from services import workout_service, strava_service, daily_log_service
 from db_client import supabase_admin
@@ -150,6 +151,16 @@ async def get_daily_log(date_str: str):
 
 
 # --- STRAVA WEBHOOK ENDPOINTS (FIXED) ---
+
+
+# auth token exchange
+@app.post("/v1/integrations/strava/exchange", tags=["Integrations"])
+async def exchange_strava_token(payload: StravaAuthCode):
+    try:
+        return await strava_service.exchange_and_store_token(payload.code)
+    except Exception as e:
+        print(f"Strava Auth Error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # 1. Verification Endpoint (GET) - Required for Setup

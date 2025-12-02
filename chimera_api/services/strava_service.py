@@ -4,8 +4,38 @@ from datetime import datetime, timedelta
 from db_client import supabase_admin
 from services.workout_service import HARDCODED_USER_ID
 
+
 STRAVA_AUTH_URL = "https://www.strava.com/oauth/token"
 STRAVA_API_URL = "https://www.strava.com/api/v3"
+
+
+async def exchange_and_store_token(code: str):
+    """
+    Exchanges the temporary code for permanent tokens and saves them to DB.
+    """
+    payload = {
+        "client_id": os.getenv("STRAVA_CLIENT_ID"),
+        "client_secret": os.getenv("STRAVA_CLIENT_SECRET"),
+        "code": code,
+        "grant_type": "authorization_code",
+    }
+
+    # 1. Call Strava
+    response = requests.post(STRAVA_AUTH_URL, data=payload)
+    response.raise_for_status()
+    data = response.json()
+
+    # 2. Save to Supabase (Using Hardcoded ID for now)
+    supabase_admin.table("user_settings").upsert(
+        {
+            "user_id": HARDCODED_USER_ID,
+            "strava_access_token": data["access_token"],
+            "strava_refresh_token": data["refresh_token"],
+            "strava_expires_at": data["expires_at"],
+        }
+    ).execute()
+
+    return {"status": "success", "athlete_id": data["athlete"]["id"]}
 
 
 def _get_access_token():
