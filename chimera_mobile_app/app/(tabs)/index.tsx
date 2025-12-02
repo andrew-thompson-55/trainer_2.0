@@ -9,14 +9,8 @@ export default function ItineraryScreen() {
   const router = useRouter(); 
   const [sections, setSections] = useState<any[]>([]);
 
-  const loadData = async () => {
-    try {
-      const data = await api.getWorkouts();
-      if (!data || !Array.isArray(data)) {
-        setSections([]);
-        return;
-      }
-      
+  // Helper to process raw data into sections
+  const processAndSetSections = (data: any[]) => {
       const grouped: any = {};
       data.forEach((workout: any) => {
         if (!workout.start_time) return;
@@ -33,8 +27,23 @@ export default function ItineraryScreen() {
       }));
 
       setSections(sectionsArray);
+  }
+
+  const loadData = async () => {
+    // 1. Load Cache FIRST (Instant)
+    const cachedData = await api.getCachedWorkouts();
+    if (cachedData && cachedData.length > 0) {
+        processAndSetSections(cachedData);
+    }
+
+    // 2. Load Network SECOND (Updates UI)
+    try {
+      const netData = await api.getWorkouts();
+      if (netData && Array.isArray(netData)) {
+        processAndSetSections(netData);
+      }
     } catch (e) {
-      console.error("Load failed", e);
+      console.log("Network refresh failed, showing cached data.");
     }
   };
 
@@ -49,7 +58,7 @@ export default function ItineraryScreen() {
     const newStatus = workout.status === 'completed' ? 'planned' : 'completed';
     try {
         await api.updateWorkout(workout.id, { status: newStatus });
-        loadData();
+        loadData(); // Refresh list
     } catch (error) {
         Alert.alert("Error", "Failed to update status.");
     }

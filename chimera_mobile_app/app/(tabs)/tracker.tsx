@@ -13,7 +13,7 @@ export default function TrackerScreen() {
     rem_sleep: '',
     resources_percent: '',
     hrv_score: '',
-    resting_heart_rate: '',
+    min_sleep_hr: '',
     motivation: '',
     soreness: '',
     stress: '',
@@ -37,7 +37,7 @@ export default function TrackerScreen() {
             // Reset if no data
             setMetrics({
                 sleep_total: '', deep_sleep: '', rem_sleep: '',
-                resources_percent: '', hrv_score: '', resting_heart_rate: '',
+                resources_percent: '', hrv_score: '', min_sleep_hr: '',
                 motivation: '', soreness: '', stress: '', body_weight_kg: ''
             });
         }
@@ -92,7 +92,8 @@ export default function TrackerScreen() {
         <View style={styles.row}>
             <InputBox label="Body Batt %" val={metrics.resources_percent} setVal={v => updateMetric('resources_percent', v)} />
             <InputBox label="HRV (ms)" val={metrics.hrv_score} setVal={v => updateMetric('hrv_score', v)} />
-            <InputBox label="RHR (bpm)" val={metrics.resting_heart_rate} setVal={v => updateMetric('resting_heart_rate', v)} />
+            <InputBox label="Min Sleep HR" val={metrics.min_sleep_hr} setVal={v => updateMetric('min_sleep_hr', v)} 
+            />
         </View>
 
         <Text style={styles.sectionHeader}>Subjective (1-10)</Text>

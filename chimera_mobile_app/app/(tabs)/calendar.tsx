@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, Text, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { api } from '../../services/api';
-import { useFocusEffect, useRouter } from 'expo-router'; // <--- Added useRouter
+import { useFocusEffect, useRouter } from 'expo-router'; 
 import { format, parseISO } from 'date-fns';
 
 const COLORS: any = {
@@ -14,7 +14,7 @@ const COLORS: any = {
 };
 
 export default function CalendarScreen() {
-  const router = useRouter(); // <--- Initialize Router
+  const router = useRouter(); 
   const [selectedDate, setSelectedDate] = useState('');
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [markedDates, setMarkedDates] = useState({});
@@ -22,27 +22,30 @@ export default function CalendarScreen() {
   useFocusEffect(
     useCallback(() => {
       async function loadData() {
-        try {
-          const data = await api.getWorkouts();
-          setWorkouts(data);
-          
-          const marked: any = {};
-          
-          if (data && Array.isArray(data)) {
-            data.forEach((workout: any) => {
-                const dateKey = workout.start_time.split('T')[0];
-                const dotColor = COLORS[workout.activity_type] || COLORS.other;
-    
-                marked[dateKey] = {
-                  marked: true,
-                  dotColor: dotColor
-                };
-            });
-          }
+        // Helper to update state
+        const updateUI = (data: any[]) => {
+            setWorkouts(data);
+            const marked: any = {};
+            if (data && Array.isArray(data)) {
+                data.forEach((workout: any) => {
+                    const dateKey = workout.start_time.split('T')[0];
+                    const dotColor = COLORS[workout.activity_type] || COLORS.other;
+                    marked[dateKey] = { marked: true, dotColor: dotColor };
+                });
+            }
+            setMarkedDates(marked);
+        };
 
-          setMarkedDates(marked);
+        // 1. Cache First
+        const cached = await api.getCachedWorkouts();
+        if (cached.length > 0) updateUI(cached);
+
+        // 2. Network Second
+        try {
+            const fresh = await api.getWorkouts();
+            updateUI(fresh);
         } catch (e) {
-          console.error("Failed to load calendar:", e);
+            console.log("Using cached calendar data");
         }
       }
       loadData();
