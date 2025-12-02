@@ -53,3 +53,18 @@ class DailyLogResponse(DailyLogBase):
     id: UUID
     date: date_type
     user_id: UUID
+
+
+# --- Strava Models (NEW) ---
+class StravaChallengeResponse(BaseModel):
+    hub_challenge: str = Field(..., alias="hub.challenge")
+
+
+class StravaWebhookEvent(BaseModel):
+    aspect_type: Literal["create", "update", "delete"]
+    event_time: int
+    object_id: int
+    object_type: Literal["activity", "athlete"]
+    owner_id: int
+    subscription_id: int
+    updates: Optional[Dict[str, Any]] = None

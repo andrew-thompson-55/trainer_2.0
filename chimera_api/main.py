@@ -1,19 +1,25 @@
 import os
 import google.generativeai as genai
 from datetime import datetime, timedelta, timezone
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from dotenv import load_dotenv
 from typing import List, Optional
 from uuid import UUID
 
 # Internal modules
-from schemas import ChatRequest, WorkoutCreate, WorkoutResponse
-from services import workout_service
+# ADDED: StravaWebhookEvent, StravaChallengeResponse
+from schemas import (
+    ChatRequest,
+    WorkoutCreate,
+    WorkoutResponse,
+    DailyLogCreate,
+    DailyLogResponse,
+    StravaWebhookEvent,
+    StravaChallengeResponse,
+)
+from services import workout_service, strava_service, daily_log_service
 from db_client import supabase_admin
 from ai_tools import tools_schema, execute_tool_call
-
-from services import daily_log_service
-from schemas import DailyLogCreate, DailyLogResponse
 
 load_dotenv()
 
@@ -24,10 +30,7 @@ api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     raise RuntimeError("GEMINI_API_KEY missing from environment.")
 
-# Clean the key just in case
 api_key = api_key.strip()
-
-# Configure the SDK
 genai.configure(api_key=api_key)
 
 
@@ -36,21 +39,15 @@ def health_check():
     return {"status": "Chimera is Online"}
 
 
-# --- AI CHAT ENDPOINT (With Tools) ---
+# --- AI CHAT ENDPOINT ---
 @app.post("/v1/chat")
 async def chat_with_gemini(request: ChatRequest):
     try:
-        # 1. Initialize Model with Tools
         model = genai.GenerativeModel(model_name="gemini-2.5-flash", tools=tools_schema)
 
-        # 2. Define System Context WITH TIMEZONE
-        # Calculate Eastern Time (UTC-5)
-        # Note: A real production app would get this from the user's phone,
-        # but for your personal app, hardcoding your timezone is perfect.
         utc_now = datetime.now(timezone.utc)
         est_offset = timedelta(hours=-5)
         local_time = utc_now + est_offset
-
         current_time_str = local_time.strftime("%Y-%m-%d %H:%M:%S")
 
         system_instructions = f"""
@@ -62,13 +59,11 @@ async def chat_with_gemini(request: ChatRequest):
         - Today is {local_time.strftime("%A")}.
         
         RULES:
-        1. When the user asks for a time (e.g. "6am"), ALWAYS append the timezone offset "-05:00" to the ISO string.
-           Example: "2025-12-02T06:00:00-05:00"
+        1. When the user asks for a time (e.g. "6am"), ALWAYS append the timezone offset "-05:00".
         2. If the user asks to schedule, add, or plan a workout, YOU MUST use the 'create_workout' tool.
         3. Do not ask for confirmation if the user provides enough info.
         """
 
-        # 3. Start Chat Session
         chat = model.start_chat(
             history=[
                 {"role": "user", "parts": system_instructions},
@@ -79,8 +74,6 @@ async def chat_with_gemini(request: ChatRequest):
             ]
         )
 
-        # ... (Rest of the function remains exactly the same) ...
-        # 4. Send User Message
         response = chat.send_message(request.message)
 
         final_reply = ""
@@ -117,7 +110,7 @@ async def chat_with_gemini(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- WORKOUT ENDPOINTS (Unchanged) ---
+# --- WORKOUT ENDPOINTS ---
 
 
 @app.post("/v1/workouts", response_model=WorkoutResponse, tags=["Workouts"])
@@ -154,3 +147,44 @@ async def upsert_daily_log(date_str: str, log_data: DailyLogCreate):
 @app.get("/v1/daily-logs/{date_str}", tags=["Tracker"])
 async def get_daily_log(date_str: str):
     return await daily_log_service.get_log(date_str)
+
+
+# --- STRAVA WEBHOOK ENDPOINTS (FIXED) ---
+
+
+# 1. Verification Endpoint (GET) - Required for Setup
+@app.get(
+    "/v1/webhooks/strava", response_model=StravaChallengeResponse, tags=["Webhooks"]
+)
+async def webhook_strava_validation(
+    hub_mode: str = Query(..., alias="hub.mode"),
+    hub_challenge: str = Query(..., alias="hub.challenge"),
+    hub_verify_token: str = Query(..., alias="hub.verify_token"),
+):
+    # Verify the token matches what you set in Render
+    verify_token = os.getenv("STRAVA_VERIFY_TOKEN")
+
+    if hub_mode == "subscribe" and hub_verify_token == verify_token:
+        print("Strava Webhook Verified!")
+        return StravaChallengeResponse(hub_challenge=hub_challenge)
+
+    raise HTTPException(status_code=403, detail="Invalid verify token")
+
+
+# 2. Event Endpoint (POST) - Receives Data
+@app.post("/v1/webhooks/strava", status_code=200, tags=["Webhooks"])
+async def webhook_strava_event(payload: StravaWebhookEvent):
+    """Receives event notifications from Strava."""
+    print(f"Received Strava Event: {payload}")
+
+    if payload.object_type == "activity":
+        if payload.aspect_type == "create":
+            # Fire and forget (or await if you want logs visible immediately)
+            await strava_service.handle_webhook_event(
+                payload.object_id, payload.owner_id
+            )
+        elif payload.aspect_type == "delete":
+            # Handle delete later
+            pass
+
+    return {"status": "event received"}
