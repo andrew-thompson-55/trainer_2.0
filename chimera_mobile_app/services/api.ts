@@ -65,4 +65,24 @@ export const api = {
       throw e;
     }
   },
+  
+  async getDailyLog(date: string) {
+    try {
+        const response = await fetch(`${API_BASE}/daily-logs/${date}`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch (e) {
+        return null;
+    }
+  },
+
+  async updateDailyLog(date: string, data: any) {
+    const response = await fetch(`${API_BASE}/daily-logs/${date}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error("Failed to save log");
+    return await response.json();
+  }
 };

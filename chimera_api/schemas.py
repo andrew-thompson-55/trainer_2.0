@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Optional, Literal
 from uuid import UUID
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from datetime import date as date_type
 
 
 class ChatRequest(BaseModel):
@@ -29,3 +30,26 @@ class WorkoutResponse(WorkoutBase):
 
     class Config:
         from_attributes = True
+
+
+class DailyLogBase(BaseModel):
+    sleep_total: Optional[float] = None
+    deep_sleep: Optional[float] = None
+    rem_sleep: Optional[float] = None
+    resources_percent: Optional[int] = None
+    hrv_score: Optional[int] = None
+    resting_heart_rate: Optional[int] = None
+    motivation: Optional[int] = None
+    soreness: Optional[int] = None
+    stress: Optional[int] = None
+    body_weight_kg: Optional[float] = None
+
+
+class DailyLogCreate(DailyLogBase):
+    pass
+
+
+class DailyLogResponse(DailyLogBase):
+    id: UUID
+    date: date_type
+    user_id: UUID

@@ -12,6 +12,9 @@ from services import workout_service
 from db_client import supabase_admin
 from ai_tools import tools_schema, execute_tool_call
 
+from services import daily_log_service
+from schemas import DailyLogCreate, DailyLogResponse
+
 load_dotenv()
 
 app = FastAPI()
@@ -138,3 +141,16 @@ async def update_workout(workout_id: UUID, workout: dict):
 async def delete_workout(workout_id: UUID):
     await workout_service.delete_workout(workout_id)
     return {"status": "deleted"}
+
+
+# --- DAILY LOG ENDPOINTS ---
+
+
+@app.put("/v1/daily-logs/{date_str}", response_model=DailyLogResponse, tags=["Tracker"])
+async def upsert_daily_log(date_str: str, log_data: DailyLogCreate):
+    return await daily_log_service.upsert_log(date_str, log_data)
+
+
+@app.get("/v1/daily-logs/{date_str}", tags=["Tracker"])
+async def get_daily_log(date_str: str):
+    return await daily_log_service.get_log(date_str)

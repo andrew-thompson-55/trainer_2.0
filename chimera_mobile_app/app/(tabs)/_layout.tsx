@@ -60,6 +60,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="tracker"
+        options={{
+          title: 'Tracker',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
