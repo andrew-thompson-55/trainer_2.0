@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Query
 from dotenv import load_dotenv
 from typing import List, Optional
 from uuid import UUID
+from fastapi.responses import RedirectResponse
 
 # Internal modules
 # ADDED: StravaWebhookEvent, StravaChallengeResponse
@@ -199,3 +200,17 @@ async def webhook_strava_event(payload: StravaWebhookEvent):
             pass
 
     return {"status": "event received"}
+
+
+# --- STRAVA REDIRECT BOUNCER ---
+@app.get("/v1/integrations/strava/redirect", tags=["Integrations"])
+async def strava_bounce(
+    code: str, scope: str = None, state: str = None, error: str = None
+):
+    """
+    Strava sends the user here. We bounce them back to the mobile app schema.
+    """
+    if error:
+        return RedirectResponse(f"chimera://redirect?error={error}")
+
+    return RedirectResponse(f"chimera://redirect?code={code}")
