@@ -1,7 +1,7 @@
 from datetime import datetime, date as date_type
 from typing import Optional, Literal, Dict, Any
 from uuid import UUID
-from pydantic import BaseModel, Field, ConfigDict  # <--- ADD ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # --- Chat Models ---
@@ -56,9 +56,14 @@ class DailyLogResponse(DailyLogBase):
     user_id: UUID
 
 
-# --- Strava Models ---
+# --- Strava Auth Models (Restored) ---
+class StravaAuthCode(BaseModel):
+    code: str
+
+
+# --- Strava Webhook Models ---
 class StravaChallengeResponse(BaseModel):
-    # This line fixes the error by allowing 'hub_challenge' to be used
+    # Allows mapping 'hub_challenge' to 'hub.challenge'
     model_config = ConfigDict(populate_by_name=True)
 
     hub_challenge: str = Field(..., alias="hub.challenge")
