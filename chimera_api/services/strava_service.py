@@ -1,18 +1,17 @@
 import os
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from db_client import supabase_admin
 from services.workout_service import HARDCODED_USER_ID
 
 STRAVA_AUTH_URL = "https://www.strava.com/oauth/token"
 STRAVA_API_URL = "https://www.strava.com/api/v3"
 
+# Hardcode user's timezone offset for matching (same as main.py)
+USER_TIMEZONE_OFFSET = -5
+
 
 def _get_access_token():
-    """
-    Fetches the latest tokens from the Database (not Environment)
-    and refreshes them if necessary.
-    """
     # 1. Get tokens from DB
     response = (
         supabase_admin.table("user_settings")
@@ -21,17 +20,12 @@ def _get_access_token():
         .execute()
     )
     if not response.data:
-        raise Exception(
-            "No Strava tokens found for user. Please connect Strava in Settings."
-        )
+        raise Exception("No Strava tokens found for user.")
 
     settings = response.data[0]
     refresh_token = settings.get("strava_refresh_token")
 
-    if not refresh_token:
-        raise Exception("Strava refresh token is missing.")
-
-    # 2. Refresh the Token with Strava
+    # 2. Refresh the Token
     payload = {
         "client_id": os.getenv("STRAVA_CLIENT_ID"),
         "client_secret": os.getenv("STRAVA_CLIENT_SECRET"),
@@ -43,7 +37,7 @@ def _get_access_token():
     r.raise_for_status()
     tokens = r.json()
 
-    # 3. Save new tokens back to DB (Strava rotates them!)
+    # 3. Save new tokens
     supabase_admin.table("user_settings").update(
         {
             "strava_access_token": tokens["access_token"],
@@ -55,55 +49,11 @@ def _get_access_token():
     return tokens["access_token"]
 
 
-async def exchange_and_store_token(code: str):
-    """
-    Initial setup: Exchanges code for token.
-    """
-    # Hardcoded redirect to match the Frontend/Settings config
-    redirect_uri = "https://trainer-2-0.onrender.com/v1/integrations/strava/redirect"
-
-    payload = {
-        "client_id": os.getenv("STRAVA_CLIENT_ID"),
-        "client_secret": os.getenv("STRAVA_CLIENT_SECRET"),
-        "code": code,
-        "grant_type": "authorization_code",
-        "redirect_uri": redirect_uri,
-    }
-
-    print(f"Swapping code for token...")
-    response = requests.post(STRAVA_AUTH_URL, data=payload)
-
-    if not response.ok:
-        print(f"Strava Exchange Failed: {response.text}")
-        response.raise_for_status()
-
-    data = response.json()
-    athlete = data.get("athlete", {})
-
-    # Save to Supabase
-    supabase_admin.table("user_settings").upsert(
-        {
-            "user_id": HARDCODED_USER_ID,
-            "strava_access_token": data["access_token"],
-            "strava_refresh_token": data["refresh_token"],
-            "strava_expires_at": data["expires_at"],
-        }
-    ).execute()
-
-    return {"status": "success", "athlete_id": athlete.get("id")}
-
-
 async def handle_webhook_event(object_id: int, owner_id: int):
-    """
-    Triggered by Webhook. Fetches data and saves it.
-    """
     print(f"🚴 Processing Strava Activity ID: {object_id}")
 
     try:
-        # 1. Get Fresh Token
         token = _get_access_token()
-
-        # 2. Fetch Activity Data
         headers = {"Authorization": f"Bearer {token}"}
         r = requests.get(f"{STRAVA_API_URL}/activities/{object_id}", headers=headers)
         r.raise_for_status()
@@ -121,12 +71,12 @@ async def handle_webhook_event(object_id: int, owner_id: int):
         elif "weight" in strava_type or "strength" in strava_type:
             activity_type = "strength"
 
-        # 3. Save to Completed Activities
+        # Insert
         activity_record = {
             "user_id": HARDCODED_USER_ID,
             "source_type": "strava",
             "source_id": str(data["id"]),
-            "start_time": data["start_date"],
+            "start_time": data["start_date"],  # Save UTC for physics truth
             "distance_meters": data.get("distance"),
             "moving_time_seconds": data.get("moving_time"),
             "elapsed_time_seconds": data.get("elapsed_time"),
@@ -141,50 +91,67 @@ async def handle_webhook_event(object_id: int, owner_id: int):
             .execute()
         )
 
-        print(f"✅ Activity Saved. ID: {result.data[0]['id']}")
-
-        # 4. Run Auto-Matcher
-        await _auto_link_to_plan(result.data[0]["id"], activity_record)
+        # Pass the FULL data object (which has start_date_local) to the linker
+        await _auto_link_to_plan(result.data[0]["id"], data)
 
     except Exception as e:
         print(f"❌ Strava Processing Error: {e}")
 
 
-async def _auto_link_to_plan(completed_id, activity_record):
+async def _auto_link_to_plan(completed_id, strava_data):
     """
-    Links actual activity to planned workout.
+    Links actual activity to planned workout using LOCAL DATE matching.
     """
-    activity_date = activity_record["start_time"].split("T")[0]
-    print(f"🔍 Checking plan for {activity_date}...")
+    # 1. Use Local Date (The time on your watch)
+    local_iso = strava_data.get("start_date_local")  # "2025-12-02T18:00:00"
+    target_date_str = local_iso.split("T")[0]  # "2025-12-02"
 
-    start_of_day = f"{activity_date}T00:00:00"
-    end_of_day = f"{activity_date}T23:59:59"
+    print(f"🔍 Matching against Plan Date: {target_date_str} (Local Time)")
 
-    # Find planned workouts for that day
+    # 2. Query a WIDE Window (UTC)
+    # We query 24h BEFORE and AFTER the target date to ensure we catch the planned workout
+    # regardless of how Postgres stored the timezone.
+    target_date = datetime.fromisoformat(target_date_str)
+    search_start = (target_date - timedelta(days=1)).isoformat()
+    search_end = (target_date + timedelta(days=2)).isoformat()
+
     response = (
         supabase_admin.table("planned_workouts")
         .select("*")
         .eq("user_id", HARDCODED_USER_ID)
-        .gte("start_time", start_of_day)
-        .lte("start_time", end_of_day)
+        .gte("start_time", search_start)
+        .lte("start_time", search_end)
         .execute()
     )
 
     candidates = response.data
+    match = None
 
-    if candidates:
-        # Simple match: Take the first one. (V2: Match by type)
-        match = candidates[0]
+    # 3. Filter in Python (The Precise Match)
+    # We shift the DB timestamps to User's Local Time and check if the DATE matches.
+    for plan in candidates:
+        # Parse DB time (UTC)
+        plan_utc = datetime.fromisoformat(plan["start_time"].replace("Z", "+00:00"))
+
+        # Shift to User's Timezone
+        plan_local = plan_utc + timedelta(hours=USER_TIMEZONE_OFFSET)
+        plan_date_str = plan_local.strftime("%Y-%m-%d")
+
+        if plan_date_str == target_date_str:
+            match = plan
+            break
+
+    if match:
         print(f"🤝 MATCH! Linking to: {match['title']}")
 
-        # Link records
         supabase_admin.table("completed_activities").update(
             {"planned_workout_id": match["id"]}
         ).eq("id", completed_id).execute()
 
-        # Mark plan complete
         supabase_admin.table("planned_workouts").update({"status": "completed"}).eq(
             "id", match["id"]
         ).execute()
     else:
-        print("No matching plan found.")
+        print(
+            f"🤷 No match found for {target_date_str}. Candidates checked: {len(candidates)}"
+        )
