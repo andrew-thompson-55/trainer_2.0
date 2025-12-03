@@ -51,3 +51,15 @@ async def delete_workout(workout_id: UUID):
     supabase_admin.table("planned_workouts").delete().eq(
         "id", str(workout_id)
     ).execute()
+
+
+async def get_linked_activity(workout_id: UUID) -> dict:
+    response = (
+        supabase_admin.table("completed_activities")
+        .select("*")
+        .eq("planned_workout_id", str(workout_id))
+        .execute()
+    )
+    if response.data:
+        return response.data[0]
+    return None

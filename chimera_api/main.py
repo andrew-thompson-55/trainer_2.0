@@ -254,3 +254,12 @@ async def strava_bounce(code: str = None, state: str = None, error: str = None):
     </html>
     """
     return HTMLResponse(content=html_content)
+
+
+@app.get("/v1/workouts/{workout_id}/activity", tags=["Workouts"])
+async def get_linked_activity(workout_id: UUID):
+    activity = await workout_service.get_linked_activity(workout_id)
+    if not activity:
+        # Return empty dict instead of 404 to keep frontend logic simple
+        return {}
+    return activity

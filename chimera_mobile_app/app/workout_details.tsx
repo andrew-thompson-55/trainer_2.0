@@ -1,14 +1,16 @@
-import React from 'react';
-import { StyleSheet, View, Text, SafeAreaView, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, SafeAreaView, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
+import { api } from '../services/api';
 
 export default function WorkoutDetailsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const [activity, setActivity] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   
-  // Safely handle params
   const workout = {
     id: params.id as string,
     title: params.title as string,
@@ -26,9 +28,35 @@ export default function WorkoutDetailsScreen() {
     ? format(parseISO(workout.start_time), 'h:mm a') 
     : '';
 
+  useEffect(() => {
+    async function loadActivity() {
+        const data = await api.getLinkedActivity(workout.id);
+        if (data && data.id) {
+            setActivity(data);
+        }
+        setLoading(false);
+    }
+    loadActivity();
+  }, []);
+
+  // Helper to format duration (seconds -> mm:ss or hh:mm)
+  const formatDuration = (seconds: number) => {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m ${s}s`;
+  };
+
+  // Helper to format distance (meters -> miles/km)
+  const formatDistance = (meters: number) => {
+      // Default to miles for US user, could be config later
+      const miles = meters * 0.000621371;
+      return `${miles.toFixed(2)} mi`;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#007AFF" />
@@ -47,16 +75,14 @@ export default function WorkoutDetailsScreen() {
                     <Text style={styles.badgeText}>{workout.status.toUpperCase()}</Text>
                  </View>
             </View>
-            
             <Text style={styles.title}>{workout.title}</Text>
-            
             <View style={styles.row}>
                 <Ionicons name="calendar-outline" size={16} color="#8E8E93" />
                 <Text style={styles.metaText}>{formattedDate} at {formattedTime}</Text>
             </View>
         </View>
 
-        {/* Description Section - FIXED CONDITIONAL */}
+        {/* Description */}
         {workout.description ? (
              <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Notes</Text>
@@ -64,19 +90,44 @@ export default function WorkoutDetailsScreen() {
              </View>
         ) : null}
 
-        {/* Future "Completed Data" Section */}
+        {/* Performance Data Section */}
         <View style={styles.section}>
             <Text style={styles.sectionTitle}>Performance Data</Text>
-            <View style={styles.placeholderBox}>
-                <Ionicons name="stats-chart" size={30} color="#C7C7CC" />
-                <Text style={styles.placeholderText}>
-                    No activity data linked yet.{'\n'}
-                    (Eventually, Strava stats will appear here)
-                </Text>
-            </View>
+            
+            {loading ? (
+                <ActivityIndicator color="#007AFF" />
+            ) : activity ? (
+                <View style={styles.statsGrid}>
+                    <View style={styles.statBox}>
+                        <Text style={styles.statLabel}>Distance</Text>
+                        <Text style={styles.statValue}>{formatDistance(activity.distance_meters)}</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                        <Text style={styles.statLabel}>Duration</Text>
+                        <Text style={styles.statValue}>{formatDuration(activity.moving_time_seconds)}</Text>
+                    </View>
+                    {activity.average_heartrate && (
+                        <View style={styles.statBox}>
+                            <Text style={styles.statLabel}>Avg HR</Text>
+                            <Text style={styles.statValue}>{activity.average_heartrate} bpm</Text>
+                        </View>
+                    )}
+                    <View style={styles.statBox}>
+                        <Text style={styles.statLabel}>Source</Text>
+                        <Text style={styles.statValue}>{activity.source_type.toUpperCase()}</Text>
+                    </View>
+                </View>
+            ) : (
+                <View style={styles.placeholderBox}>
+                    <Ionicons name="stats-chart" size={30} color="#C7C7CC" />
+                    <Text style={styles.placeholderText}>
+                        No activity data linked yet.{'\n'}
+                        (Sync with Strava to populate)
+                    </Text>
+                </View>
+            )}
         </View>
 
-        {/* Action Buttons */}
         <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => router.push({
@@ -87,8 +138,6 @@ export default function WorkoutDetailsScreen() {
                     description: workout.description,
                     activity_type: workout.activity_type,
                     start_time: workout.start_time,
-                    // end_time is usually not passed to details, we might need to calculate it or just send start_time
-                    // For now, let's assume standard duration or pass start_time twice to avoid crash
                     end_time: workout.start_time 
                 }
             })}
@@ -101,7 +150,6 @@ export default function WorkoutDetailsScreen() {
   );
 }
 
-// Helper to pick icons
 function getIconName(type: string) {
     switch(type) {
         case 'run': return 'walk';
@@ -119,7 +167,6 @@ const styles = StyleSheet.create({
   backText: { fontSize: 17, color: '#007AFF', marginLeft: 4 },
   headerTitle: { fontSize: 17, fontWeight: '600' },
   content: { padding: 20 },
-  
   card: { backgroundColor: '#FFF', borderRadius: 12, padding: 20, marginBottom: 20, alignItems: 'center' },
   iconRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 10, alignItems: 'flex-start' },
   badge: { backgroundColor: '#E5E5EA', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
@@ -127,14 +174,17 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   metaText: { fontSize: 15, color: '#8E8E93' },
-
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 13, color: '#8E8E93', fontWeight: '600', textTransform: 'uppercase', marginBottom: 8, marginLeft: 4 },
   bodyText: { fontSize: 16, color: '#000', backgroundColor: '#FFF', padding: 16, borderRadius: 12, lineHeight: 22 },
-
   placeholderBox: { backgroundColor: '#FFF', borderRadius: 12, padding: 30, alignItems: 'center', borderStyle: 'dashed', borderWidth: 1, borderColor: '#C7C7CC' },
   placeholderText: { textAlign: 'center', color: '#8E8E93', marginTop: 10 },
-
   actionButton: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
   actionButtonText: { color: '#007AFF', fontSize: 17, fontWeight: '600' },
+  
+  // New Stats Styles
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  statBox: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, width: '48%', alignItems: 'center' },
+  statLabel: { fontSize: 12, color: '#8E8E93', marginBottom: 4, textTransform: 'uppercase' },
+  statValue: { fontSize: 18, fontWeight: 'bold', color: '#000' },
 });

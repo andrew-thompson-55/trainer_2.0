@@ -86,5 +86,16 @@ export const api = {
     });
     if (!response.ok) throw new Error("Failed to save log");
     return await response.json();
-  }
+  },
+
+  // get completed linked activity data
+  async getLinkedActivity(plannedWorkoutId: string) {
+    try {
+        const response = await fetch(`${API_BASE}/workouts/${plannedWorkoutId}/activity`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch (e) {
+        return null;
+    }
+  },
 };
