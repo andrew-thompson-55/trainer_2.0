@@ -1,14 +1,15 @@
-from datetime import datetime
+from datetime import datetime, date as date_type
 from typing import Optional, Literal, Dict, Any
 from uuid import UUID
-from pydantic import BaseModel, Field
-from datetime import date as date_type
+from pydantic import BaseModel, Field, ConfigDict  # <--- ADD ConfigDict
 
 
+# --- Chat Models ---
 class ChatRequest(BaseModel):
     message: str
 
 
+# --- Workout Models ---
 class WorkoutBase(BaseModel):
     title: str
     description: Optional[str] = None
@@ -19,7 +20,6 @@ class WorkoutBase(BaseModel):
 
 
 class WorkoutCreate(WorkoutBase):
-    # User ID will be handled by the system for now
     pass
 
 
@@ -32,6 +32,7 @@ class WorkoutResponse(WorkoutBase):
         from_attributes = True
 
 
+# --- Daily Log Models ---
 class DailyLogBase(BaseModel):
     sleep_total: Optional[float] = None
     deep_sleep: Optional[float] = None
@@ -55,8 +56,11 @@ class DailyLogResponse(DailyLogBase):
     user_id: UUID
 
 
-# --- Strava Models (NEW) ---
+# --- Strava Models ---
 class StravaChallengeResponse(BaseModel):
+    # This line fixes the error by allowing 'hub_challenge' to be used
+    model_config = ConfigDict(populate_by_name=True)
+
     hub_challenge: str = Field(..., alias="hub.challenge")
 
 
@@ -68,7 +72,3 @@ class StravaWebhookEvent(BaseModel):
     owner_id: int
     subscription_id: int
     updates: Optional[Dict[str, Any]] = None
-
-
-class StravaAuthCode(BaseModel):
-    code: str
