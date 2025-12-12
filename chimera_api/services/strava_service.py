@@ -10,6 +10,17 @@ STRAVA_API_URL = "https://www.strava.com/api/v3"
 # Hardcode user's timezone offset for matching (same as main.py)
 USER_TIMEZONE_OFFSET = -5
 
+# Helper function
+
+
+def _safe_int(value):
+    if value is None:
+        return None
+    try:
+        return int(float(value))
+    except (ValueError, TypeError):
+        return None
+
 
 def _get_access_token():
     # 1. Get tokens from DB
@@ -78,10 +89,10 @@ async def handle_webhook_event(object_id: int, owner_id: int):
             "source_id": str(data["id"]),
             "start_time": data["start_date"],  # Save UTC for physics truth
             "distance_meters": data.get("distance"),
-            "moving_time_seconds": data.get("moving_time"),
-            "elapsed_time_seconds": data.get("elapsed_time"),
+            "moving_time_seconds": _safe_int(data.get("moving_time")),
+            "elapsed_time_seconds": _safe_int(data.get("elapsed_time")),
             "total_elevation_gain": data.get("total_elevation_gain"),
-            "average_heartrate": data.get("average_heartrate"),
+            "average_heartrate": _safe_int(data.get("average_heartrate")),
             "activity_data_blob": data,
         }
 
