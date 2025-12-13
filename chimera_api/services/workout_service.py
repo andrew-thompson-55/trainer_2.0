@@ -2,10 +2,12 @@ from typing import List, Optional
 from uuid import UUID
 from schemas import WorkoutCreate, WorkoutResponse
 from db_client import supabase_admin
+from services import gcal_service, hard_coded_values
 
 # TODO: Replace with your actual User UUID from Supabase Authentication > Users
 # For now, we hardcode it to bypass the need for a Login screen in the app immediately.
-HARDCODED_USER_ID = "dc43c3a8-9d6a-4bc1-83da-68e7a5bfca89"
+
+HARDCODED_USER_ID = hard_coded_values.HARDCODED_USER_ID
 
 
 async def create_workout(workout: WorkoutCreate) -> dict:
@@ -17,7 +19,14 @@ async def create_workout(workout: WorkoutCreate) -> dict:
     data["end_time"] = data["end_time"].isoformat()
 
     response = supabase_admin.table("planned_workouts").insert(data).execute()
-    return response.data[0]
+    new_workout = response.data[0]
+
+    # TRIGGER GCAL SYNC (Create)
+    # We run this in a fire-and-forget manner effectively, or you could await it if you made it async
+    # For now, synchronous call is fine given it's fast enough
+    gcal_service.sync_workout_to_calendar(new_workout, is_new=True)
+
+    return new_workout
 
 
 async def get_workouts(
@@ -38,16 +47,42 @@ async def get_workouts(
 
 
 async def update_workout(workout_id: UUID, updates: dict) -> dict:
+    # Ensure datetimes in updates are strings if they exist
+    if "start_time" in updates and hasattr(updates["start_time"], "isoformat"):
+        updates["start_time"] = updates["start_time"].isoformat()
+    if "end_time" in updates and hasattr(updates["end_time"], "isoformat"):
+        updates["end_time"] = updates["end_time"].isoformat()
+
     response = (
         supabase_admin.table("planned_workouts")
         .update(updates)
         .eq("id", str(workout_id))
         .execute()
     )
-    return response.data[0]
+
+    if response.data:
+        updated_workout = response.data[0]
+        # TRIGGER GCAL SYNC (Update)
+        gcal_service.sync_workout_to_calendar(updated_workout, is_new=False)
+        return updated_workout
+
+    return response.data[0] if response.data else {}
 
 
 async def delete_workout(workout_id: UUID):
+    # Fetch first to get GCal ID before we delete the record
+    data = (
+        supabase_admin.table("planned_workouts")
+        .select("google_event_id")
+        .eq("id", str(workout_id))
+        .execute()
+    )
+
+    # Check if we have a google event to delete
+    if data.data and data.data[0].get("google_event_id"):
+        gcal_service.delete_calendar_event(data.data[0]["google_event_id"])
+
+    # Now delete from DB
     supabase_admin.table("planned_workouts").delete().eq(
         "id", str(workout_id)
     ).execute()

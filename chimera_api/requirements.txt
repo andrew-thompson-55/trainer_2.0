@@ -4,3 +4,5 @@ requests
 python-dotenv
 supabase
 google-generativeai
+google-api-python-client 
+google-auth
