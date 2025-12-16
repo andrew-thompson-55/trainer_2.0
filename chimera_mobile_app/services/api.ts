@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Replace with your Render URL
-const API_BASE = 'https://trainer-2-0.onrender.com/v1'; 
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE || 'https://trainer-2-0.onrender.com/v1';
 
 const CACHE_KEYS = {
   WORKOUTS: 'chimera_cache_workouts',
