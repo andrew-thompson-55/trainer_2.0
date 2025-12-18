@@ -54,4 +54,10 @@ Chimera is an AI-powered endurance training coach. It ingests workout data from 
 
 
 ## 5. Testing Protocol
-1. 
+1. cd chimera_mobile_app
+2. npx expo start --tunnel -c
+
+
+## 6. Building APK
+1. "bump" the version in app.json. ie: 1.0.1 -> 1.0.2
+2. npx eas build -p android --profile preview

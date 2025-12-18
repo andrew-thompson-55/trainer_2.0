@@ -1,20 +1,34 @@
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, View, Text, SectionList, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, View, Text, SectionList, SafeAreaView, TouchableOpacity, RefreshControl, ToastAndroid, Platform, Alert } from 'react-native';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { useRouter, useFocusEffect } from 'expo-router'; 
 import { Ionicons } from '@expo/vector-icons'; 
 import { api } from '../../services/api';
 
+// 👇 IMPORT THE THEME
+import { Colors, Layout, Typography } from '../../theme';
+
 export default function ItineraryScreen() {
   const router = useRouter(); 
   const [sections, setSections] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Helper to process raw data into sections
+  // Inside app/(tabs)/index.tsx
+
   const processAndSetSections = (data: any[]) => {
       const grouped: any = {};
       data.forEach((workout: any) => {
         if (!workout.start_time) return;
-        const dateKey = workout.start_time.split('T')[0];
+        
+        // 🐛 BUG FIX: 
+        // Old way: workout.start_time.split('T')[0] (Uses UTC date)
+        // New way: Parse to Object -> Format to Local String
+        
+        const localDate = parseISO(workout.start_time);
+        const dateKey = format(localDate, 'yyyy-MM-dd'); // This returns "2023-12-17" based on YOUR phone's time
+        
         if (!grouped[dateKey]) {
             grouped[dateKey] = [];
         }
@@ -29,21 +43,44 @@ export default function ItineraryScreen() {
       setSections(sectionsArray);
   }
 
-  const loadData = async () => {
-    // 1. Load Cache FIRST (Instant)
+  const loadData = async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    
+    // 1. Cache
     const cachedData = await api.getCachedWorkouts();
     if (cachedData && cachedData.length > 0) {
         processAndSetSections(cachedData);
     }
 
-    // 2. Load Network SECOND (Updates UI)
+    // 2. Network
     try {
       const netData = await api.getWorkouts();
       if (netData && Array.isArray(netData)) {
         processAndSetSections(netData);
       }
     } catch (e) {
-      console.log("Network refresh failed, showing cached data.");
+      console.log("Network refresh failed");
+    } finally {
+      setLoading(false); 
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    
+    // 1. Flush Offline Queue
+    const processed = await api.processOfflineQueue();
+    
+    // 2. Sync Google Calendar
+    try { await api.syncGCal(); } catch (e) {}
+
+    // 3. Reload UI
+    await loadData(true); 
+    setRefreshing(false);
+    
+    if (Platform.OS === 'android') {
+        const msg = processed > 0 ? `Synced ${processed} updates & GCal ✅` : "Up to date ✅";
+        ToastAndroid.show(msg, ToastAndroid.SHORT);
     }
   };
 
@@ -58,7 +95,7 @@ export default function ItineraryScreen() {
     const newStatus = workout.status === 'completed' ? 'planned' : 'completed';
     try {
         await api.updateWorkout(workout.id, { status: newStatus });
-        loadData(); // Refresh list
+        loadData(); 
     } catch (error) {
         Alert.alert("Error", "Failed to update status.");
     }
@@ -97,13 +134,12 @@ export default function ItineraryScreen() {
             <Text style={styles.timeText}>
                 {workout.start_time ? format(parseISO(workout.start_time), 'h:mm a') : '--:--'}
             </Text>
-            {workout.status === 'completed' ? <View style={styles.lineCompleted} /> : null}
-            {workout.status === 'planned' ? <View style={styles.linePending} /> : null}
+            <View style={workout.status === 'completed' ? styles.lineCompleted : styles.linePending} />
         </View>
         
         <View style={[styles.details, workout.status === 'completed' ? styles.detailsCompleted : null]}>
             <Text style={styles.workoutTitle}>{workout.title || 'Untitled Workout'}</Text>
-            <Text style={styles.workoutMeta}>
+            <Text style={styles.workoutMeta} numberOfLines={4}>
                 {workout.activity_type || 'other'} 
                 {workout.description ? ` • ${workout.description}` : ''}
             </Text>
@@ -117,7 +153,7 @@ export default function ItineraryScreen() {
             <Ionicons 
                 name={workout.status === 'completed' ? "checkbox" : "square-outline"} 
                 size={28} 
-                color={workout.status === 'completed' ? "#34C759" : "#C7C7CC"} 
+                color={workout.status === 'completed' ? Colors.success : Colors.iconInactive} 
             />
         </TouchableOpacity>
     </TouchableOpacity>
@@ -137,6 +173,14 @@ export default function ItineraryScreen() {
         contentContainerStyle={styles.content}
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={<Text style={styles.emptyText}>No workouts scheduled.</Text>}
+        refreshControl={
+            <RefreshControl 
+                refreshing={refreshing} 
+                onRefresh={onRefresh}
+                colors={[Colors.primary]} 
+                tintColor={Colors.primary}
+            />
+        }
       />
 
       <TouchableOpacity 
@@ -145,29 +189,75 @@ export default function ItineraryScreen() {
       >
         <Ionicons name="add" size={30} color="#FFF" />
       </TouchableOpacity>
-
     </SafeAreaView>
   );
 }
 
+// 👇 THEME-POWERED STYLES
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
-  titleText: { fontSize: 34, fontWeight: 'bold', color: '#000' },
-  content: { paddingHorizontal: 16, paddingBottom: 100 },
-  sectionHeader: { paddingVertical: 12, backgroundColor: '#F2F2F7', marginBottom: 8 },
-  sectionHeaderText: { fontSize: 14, fontWeight: '700', color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 1 },
-  todayText: { color: '#007AFF' }, 
-  card: { flexDirection: 'row', marginBottom: 12 },
+  container: { flex: 1, backgroundColor: Colors.background },
+  
+  header: { 
+    padding: Layout.spacing.xl, 
+    backgroundColor: Colors.header, 
+    borderBottomWidth: 1, 
+    borderBottomColor: Colors.border 
+  },
+  
+  titleText: Typography.header,
+  
+  content: { 
+    paddingHorizontal: Layout.spacing.l, 
+    paddingBottom: 100 
+  },
+  
+  sectionHeader: { 
+    paddingVertical: Layout.spacing.m, 
+    backgroundColor: Colors.background, 
+    marginBottom: Layout.spacing.s 
+  },
+  
+  sectionHeaderText: Typography.subHeader,
+  
+  todayText: { color: Colors.primary }, 
+  
+  card: { flexDirection: 'row', marginBottom: Layout.spacing.m },
+  
   timeContainer: { width: 70, alignItems: 'center', paddingTop: 4 },
-  timeText: { fontSize: 12, color: '#8E8E93', marginBottom: 4 },
-  lineCompleted: { width: 2, flex: 1, backgroundColor: '#34C759' },
-  linePending: { width: 2, flex: 1, backgroundColor: '#E5E5EA' },
-  details: { flex: 1, backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginRight: 12, shadowColor: "#000", shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4 },
+  timeText: { fontSize: 12, color: Colors.textSecondary, marginBottom: 4 },
+  
+  lineCompleted: { width: 2, flex: 1, backgroundColor: Colors.success },
+  linePending: { width: 2, flex: 1, backgroundColor: Colors.border },
+  
+  details: { 
+    flex: 1, 
+    backgroundColor: Colors.card, 
+    borderRadius: Layout.borderRadius.m, 
+    padding: Layout.spacing.l, 
+    marginRight: Layout.spacing.m, 
+    shadowColor: "#000", shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4 
+  },
+  
   detailsCompleted: { opacity: 0.6 },
-  workoutTitle: { fontSize: 17, fontWeight: '600', marginBottom: 4 },
-  workoutMeta: { fontSize: 13, color: '#8E8E93', textTransform: 'capitalize' },
-  checkbox: { justifyContent: 'center', paddingLeft: 8 },
-  emptyText: { textAlign: 'center', marginTop: 50, color: '#8E8E93' },
-  fab: { position: 'absolute', right: 20, bottom: 20, backgroundColor: '#007AFF', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4.65, elevation: 8 }
+  
+  workoutTitle: Typography.cardTitle,
+  
+  workoutMeta: { fontSize: 13, color: Colors.textSecondary, textTransform: 'capitalize' },
+  
+  checkbox: { justifyContent: 'center', paddingLeft: Layout.spacing.s },
+  
+  emptyText: { textAlign: 'center', marginTop: 50, color: Colors.textSecondary },
+  
+  fab: { 
+    position: 'absolute', 
+    right: 20, 
+    bottom: 20, 
+    backgroundColor: Colors.primary, 
+    width: 56, 
+    height: 56, 
+    borderRadius: Layout.borderRadius.round, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4.65, elevation: 8 
+  }
 });

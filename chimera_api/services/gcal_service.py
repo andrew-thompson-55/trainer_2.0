@@ -42,6 +42,10 @@ def sync_workout_to_calendar(workout_data: dict, is_new=False):
         "GOOGLE_CALENDAR_ID"
     )  # "c_123...@group.calendar.google.com"
 
+    # Grab User Settings
+    planned_event_color = "6"  # push this up to settings and let user select.
+    completed_event_color = "10"
+
     # 1. Format the Event
     start_dt = datetime.fromisoformat(workout_data["start_time"].replace("Z", "+00:00"))
     end_dt = datetime.fromisoformat(workout_data["end_time"].replace("Z", "+00:00"))
@@ -55,9 +59,9 @@ def sync_workout_to_calendar(workout_data: dict, is_new=False):
         "description": f"{workout_data.get('description', '')}\n\nType: {workout_data['activity_type']}\nStatus: {workout_data['status']}",
         "start": {"dateTime": start_dt.isoformat()},
         "end": {"dateTime": end_dt.isoformat()},
-        "colorId": "10"
+        "colorId": completed_event_color
         if workout_data["status"] == "completed"
-        else "8",  # Green vs Grey
+        else planned_event_color,  # Green vs Grey
     }
 
     try:

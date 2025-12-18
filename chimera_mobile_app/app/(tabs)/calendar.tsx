@@ -4,14 +4,7 @@ import { Calendar } from 'react-native-calendars';
 import { api } from '../../services/api';
 import { useFocusEffect, useRouter } from 'expo-router'; 
 import { format, parseISO } from 'date-fns';
-
-const COLORS: any = {
-  run: '#FF3B30',      
-  bike: '#007AFF',     
-  swim: '#5AC8FA',     
-  strength: '#AF52DE', 
-  other: '#8E8E93'     
-};
+import { Colors, Layout, Typography } from '../../theme';
 
 export default function CalendarScreen() {
   const router = useRouter(); 
@@ -22,25 +15,41 @@ export default function CalendarScreen() {
   useFocusEffect(
     useCallback(() => {
       async function loadData() {
-        // Helper to update state
+        
         const updateUI = (data: any[]) => {
             setWorkouts(data);
             const marked: any = {};
+            
             if (data && Array.isArray(data)) {
                 data.forEach((workout: any) => {
-                    const dateKey = workout.start_time.split('T')[0];
-                    const dotColor = COLORS[workout.activity_type] || COLORS.other;
-                    marked[dateKey] = { marked: true, dotColor: dotColor };
+                    if (!workout.start_time) return;
+
+                    // 1. Timezone Fix
+                    const localDate = parseISO(workout.start_time);
+                    const dateKey = format(localDate, 'yyyy-MM-dd'); 
+
+                    // 2. Get Color
+                    const type = workout.activity_type || 'other';
+                    const color = Colors.activity[type] || Colors.activity.other;
+                    
+                    // 3. Multi-Dot Logic
+                    if (!marked[dateKey]) {
+                        marked[dateKey] = { dots: [] };
+                    }
+
+                    // Add this workout as a dot
+                    marked[dateKey].dots.push({
+                        key: workout.id,
+                        color: color,
+                    });
                 });
             }
             setMarkedDates(marked);
         };
 
-        // 1. Cache First
         const cached = await api.getCachedWorkouts();
         if (cached.length > 0) updateUI(cached);
 
-        // 2. Network Second
         try {
             const fresh = await api.getWorkouts();
             updateUI(fresh);
@@ -52,13 +61,17 @@ export default function CalendarScreen() {
     }, [])
   );
 
-  const selectedWorkouts = workouts.filter(w => 
-    w.start_time.startsWith(selectedDate)
-  );
+  const selectedWorkouts = workouts.filter(w => {
+    if (!w.start_time) return false;
+    const localDate = parseISO(w.start_time);
+    return format(localDate, 'yyyy-MM-dd') === selectedDate;
+  });
 
   const formattedSelectedDate = selectedDate 
-    ? format(new Date(selectedDate + 'T12:00:00'), 'EEEE, MMMM do') 
+    ? format(parseISO(selectedDate), 'EEEE, MMMM do') 
     : 'Select a date';
+
+  const getActivityColor = (type: string) => Colors.activity[type] || Colors.activity.other;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -68,22 +81,28 @@ export default function CalendarScreen() {
       
       <View style={styles.calendarContainer}>
         <Calendar
+          // 👇 ENABLE MULTI-DOT MODE
+          markingType={'multi-dot'}
+          
           onDayPress={(day: any) => setSelectedDate(day.dateString)}
+          
           markedDates={{
             ...markedDates,
             [selectedDate]: { 
-              ...(markedDates[selectedDate] || {}), 
+              ...(markedDates[selectedDate] || {}), // Keep the existing dots!
               selected: true, 
-              selectedDotColor: 'white' 
+              selectedColor: Colors.primary,
             }
           }}
+          
           theme={{
-            todayTextColor: '#007AFF',
-            arrowColor: '#007AFF',
-            monthTextColor: '#000',
+            todayTextColor: Colors.primary,
+            arrowColor: Colors.primary,
+            monthTextColor: Colors.textPrimary,
             textMonthFontWeight: 'bold',
-            selectedDayBackgroundColor: '#007AFF',
+            selectedDayBackgroundColor: Colors.primary,
             selectedDayTextColor: '#ffffff',
+            // Note: dotColor is ignored in multi-dot mode (it uses the array colors)
           }}
         />
       </View>
@@ -108,7 +127,7 @@ export default function CalendarScreen() {
                         }
                     })}
                 >
-                    <View style={[styles.colorStrip, { backgroundColor: COLORS[w.activity_type] || COLORS.other }]} />
+                    <View style={[styles.colorStrip, { backgroundColor: getActivityColor(w.activity_type) }]} />
                     <View style={styles.workoutContent}>
                         <Text style={styles.workoutTitle}>{w.title}</Text>
                         <Text style={styles.workoutMeta}>
@@ -128,16 +147,36 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { padding: 20, backgroundColor: '#FFF' },
-  titleText: { fontSize: 34, fontWeight: 'bold', color: '#000' },
-  calendarContainer: { marginTop: 20, borderRadius: 10, overflow: 'hidden', marginHorizontal: 16, backgroundColor: '#fff' },
-  summaryContainer: { padding: 20, marginTop: 20 },
-  summaryTitle: { fontSize: 20, fontWeight: '600', marginBottom: 16, color: '#333' },
-  summaryText: { fontSize: 16, color: '#8E8E93', fontStyle: 'italic' },
-  workoutCard: { flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 12, marginBottom: 12, overflow: 'hidden' },
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: { 
+    padding: Layout.spacing.xl, 
+    backgroundColor: Colors.header,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border
+  },
+  titleText: Typography.header,
+  calendarContainer: { 
+    marginTop: Layout.spacing.l, 
+    borderRadius: Layout.borderRadius.m, 
+    overflow: 'hidden', 
+    marginHorizontal: Layout.spacing.l, 
+    backgroundColor: Colors.card,
+    shadowColor: "#000", shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3
+  },
+  summaryContainer: { padding: Layout.spacing.xl, marginTop: Layout.spacing.s },
+  summaryTitle: { fontSize: 20, fontWeight: '600', marginBottom: 16, color: Colors.textPrimary },
+  summaryText: { fontSize: 16, color: Colors.textSecondary, fontStyle: 'italic' },
+  workoutCard: { 
+    flexDirection: 'row', 
+    backgroundColor: Colors.card, 
+    borderRadius: Layout.borderRadius.m, 
+    marginBottom: 12, 
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border
+  },
   colorStrip: { width: 6 },
   workoutContent: { padding: 16 },
-  workoutTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  workoutMeta: { fontSize: 12, color: '#8E8E93' }
+  workoutTitle: { fontSize: 16, fontWeight: '600', marginBottom: 4, color: Colors.textPrimary },
+  workoutMeta: { fontSize: 12, color: Colors.textSecondary }
 });
