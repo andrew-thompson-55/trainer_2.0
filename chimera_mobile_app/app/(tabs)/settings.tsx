@@ -1,51 +1,43 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, SafeAreaView, Switch } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 👈 Import
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors, Layout, Typography } from '../../theme';
 
 // !!! YOUR RENDER URL !!!
 const API_BASE = 'https://trainer-2-0.onrender.com/v1';
-// !!! YOUR STRAVA CLIENT ID !!!
 const STRAVA_CLIENT_ID = '176319'; 
 
 export default function SettingsScreen() {
   const [loading, setLoading] = useState(false);
+  const [useGraphView, setUseGraphView] = useState(false); // 👈 New State
+
+  // Load Setting on Mount
+  useEffect(() => {
+    AsyncStorage.getItem('chimera_stats_view_pref').then(val => {
+        setUseGraphView(val === 'graph');
+    });
+  }, []);
+
+  // Toggle Handler
+  const toggleStatsView = async (value: boolean) => {
+      setUseGraphView(value);
+      await AsyncStorage.setItem('chimera_stats_view_pref', value ? 'graph' : 'grid');
+  };
 
   const handleConnectStrava = async () => {
     setLoading(true);
     try {
-      const returnUrl = Linking.createURL('redirect'); // This will point to app/redirect.tsx
+      const returnUrl = Linking.createURL('redirect'); 
       const backendRedirect = `${API_BASE}/integrations/strava/redirect`;
-      
       const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(backendRedirect)}&approval_prompt=force&scope=read,activity:read_all&state=${encodeURIComponent(returnUrl)}`;
-      
-      // Just open the browser. We don't wait for a result here.
-      // The app will re-open via Deep Link to 'redirect.tsx' when done.
       await WebBrowser.openBrowserAsync(authUrl);
-      
     } catch (error) {
       Alert.alert("Error", "Failed to launch browser.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const sendCodeToBackend = async (code: string) => {
-    try {
-        const response = await fetch(`${API_BASE}/integrations/strava/exchange`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code })
-        });
-        
-        if (response.ok) {
-            Alert.alert("Success", "Strava Connected!");
-        } else {
-            throw new Error("Backend failed");
-        }
-    } catch (e) {
-        Alert.alert("Error", "Backend exchange failed.");
     }
   };
 
@@ -56,6 +48,27 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.content}>
+        
+        {/* PREFERENCES SECTION */}
+        <Text style={styles.sectionTitle}>Preferences</Text>
+        <View style={styles.row}>
+            <View style={styles.rowLeft}>
+                <Ionicons name="bar-chart" size={24} color={Colors.primary} />
+                <Text style={styles.rowText}>Use Graph View</Text>
+            </View>
+            <Switch 
+                value={useGraphView} 
+                onValueChange={toggleStatsView}
+                trackColor={{ false: Colors.border, true: Colors.primary }}
+            />
+        </View>
+        <Text style={styles.helperText}>
+            Show workout stats as bars instead of a grid.
+        </Text>
+
+        <View style={{ height: 24 }} />
+
+        {/* INTEGRATIONS SECTION */}
         <Text style={styles.sectionTitle}>Integrations</Text>
         
         <TouchableOpacity 
@@ -79,9 +92,9 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
-  titleText: { fontSize: 34, fontWeight: 'bold', color: '#000' },
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  titleText: Typography.header,
   content: { padding: 20 },
   sectionTitle: { fontSize: 13, color: '#8E8E93', fontWeight: '600', textTransform: 'uppercase', marginBottom: 8, marginLeft: 4 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF', padding: 16, borderRadius: 12 },

@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router'; // 👈 Added useFocusEffect
 import { format, parseISO } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 👈 Import
 import { api } from '../services/api';
+import { Colors, Layout, Typography } from '../theme';
 
-// 👇 1. IMPORT THE NEW TOOLS
+// 👇 IMPORT BOTH VIEWS
 import { StatsGrid } from '../components/stats-grid';
+import { StatsGraphs } from '../components/stats-graphs';
 import { getActivityStats } from '../services/stats_presenter';
 
 export default function WorkoutDetailsScreen() {
@@ -17,8 +20,8 @@ export default function WorkoutDetailsScreen() {
   const [activity, setActivity] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [useGraphView, setUseGraphView] = useState(false); // 👈 State for view pref
 
-  // Safe Params
   const workout = {
     id: params.id as string,
     title: params.title as string,
@@ -28,9 +31,16 @@ export default function WorkoutDetailsScreen() {
     status: (params.status as string) || 'planned',
   };
 
+  // 1. Load Data & Settings
   useEffect(() => {
     let isMounted = true;
-    async function loadActivity() {
+    
+    async function load() {
+        // Load Prefs
+        const pref = await AsyncStorage.getItem('chimera_stats_view_pref');
+        if (isMounted) setUseGraphView(pref === 'graph');
+
+        // Load Activity
         try {
             const data = await api.getLinkedActivity(workout.id);
             if (isMounted && data && data.id) setActivity(data);
@@ -40,20 +50,14 @@ export default function WorkoutDetailsScreen() {
             if (isMounted) setLoading(false);
         }
     }
-    loadActivity();
+    load();
     return () => { isMounted = false; };
   }, []);
 
   const handleDelete = () => {
-    Alert.alert(
-      "Delete Workout",
-      "Are you sure?",
-      [
+    Alert.alert("Delete Workout", "Are you sure?", [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive", 
-          onPress: async () => {
+        { text: "Delete", style: "destructive", onPress: async () => {
             setDeleting(true);
             try {
               await api.deleteWorkout(workout.id);
@@ -64,20 +68,21 @@ export default function WorkoutDetailsScreen() {
             }
           }
         }
-      ]
-    );
+    ]);
   };
 
-  // 👇 2. TRANSFORM DATA HERE (The "Brain")
   const uiStats = getActivityStats(activity);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+
+      {/* 👇 THIS LINE HIDES THE UGLY DEFAULT HEADER */}
+      <Stack.Screen options={{ headerShown: false }} />
       
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <Ionicons name="arrow-back" size={24} color={Colors.primary} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Details</Text>
@@ -89,17 +94,15 @@ export default function WorkoutDetailsScreen() {
         
         {/* Date */}
         <View style={styles.dateBadge}>
-          <Ionicons name="calendar-outline" size={20} color="#007AFF" />
+          <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
           <Text style={styles.dateText}>
             {workout.start_time ? format(parseISO(workout.start_time), 'EEEE, MMM do • h:mm a') : 'No Date'}
           </Text>
         </View>
 
-        {/* Title/Type */}
         <Text style={styles.title}>{workout.title}</Text>
         <Text style={styles.type}>{workout.activity_type}</Text>
 
-        {/* Status */}
         <View style={[styles.statusTag, workout.status === 'completed' ? styles.statusComplete : styles.statusPlanned]}>
           <Text style={[styles.statusText, workout.status === 'completed' ? styles.textComplete : styles.textPlanned]}>
             {workout.status.toUpperCase()}
@@ -108,17 +111,20 @@ export default function WorkoutDetailsScreen() {
 
         <View style={styles.divider} />
 
-        {/* 👇 3. NEW CLEAN RENDERING (The "Body") */}
+        {/* 👇 CONDITIONAL RENDERING */}
         <Text style={styles.sectionLabel}>Performance Data</Text>
         <View style={styles.statsContainer}>
             {loading ? (
-                <ActivityIndicator color="#007AFF" />
+                <ActivityIndicator color={Colors.primary} />
             ) : (
-                <StatsGrid stats={uiStats} /> 
+                useGraphView ? (
+                    <StatsGraphs stats={uiStats} /> 
+                ) : (
+                    <StatsGrid stats={uiStats} /> 
+                )
             )}
         </View>
 
-        {/* Description */}
         {workout.description ? (
             <View style={styles.descSection}>
                 <Text style={styles.sectionLabel}>Notes</Text>
@@ -130,12 +136,8 @@ export default function WorkoutDetailsScreen() {
 
       {/* PINNED ACTIONS */}
       <View style={styles.bottomActions}>
-        <TouchableOpacity 
-            style={[styles.button, styles.deleteButton]} 
-            onPress={handleDelete}
-            disabled={deleting}
-        >
-            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+        <TouchableOpacity style={[styles.button, styles.deleteButton]} onPress={handleDelete} disabled={deleting}>
+            <Ionicons name="trash-outline" size={20} color={Colors.danger} />
             <Text style={styles.deleteText}>Delete</Text>
         </TouchableOpacity>
 
@@ -149,6 +151,7 @@ export default function WorkoutDetailsScreen() {
                     description: workout.description,
                     activity_type: workout.activity_type,
                     start_time: workout.start_time,
+                    end_time: params.end_time // Ensure end time is passed if available
                 }
             })}
         >
@@ -163,16 +166,16 @@ export default function WorkoutDetailsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
   backButton: { flexDirection: 'row', alignItems: 'center' },
-  backText: { color: '#007AFF', fontSize: 17, marginLeft: 4 },
-  headerTitle: { fontSize: 17, fontWeight: '600' },
+  backText: { color: Colors.primary, fontSize: 17, marginLeft: 4 },
+  headerTitle: Typography.cardTitle,
   
   scrollContent: { flex: 1 },
   scrollInner: { padding: 20, paddingBottom: 40 }, 
 
-  dateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F2F2F7', padding: 8, borderRadius: 8, alignSelf: 'flex-start', marginBottom: 16 },
-  dateText: { marginLeft: 6, color: '#007AFF', fontWeight: '500' },
+  dateBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, padding: 8, borderRadius: 8, alignSelf: 'flex-start', marginBottom: 16 },
+  dateText: { marginLeft: 6, color: Colors.primary, fontWeight: '500' },
 
   title: { fontSize: 28, fontWeight: 'bold', marginBottom: 4, color: '#000' },
   type: { fontSize: 18, color: '#8E8E93', marginBottom: 16, textTransform: 'capitalize' },
@@ -182,9 +185,9 @@ const styles = StyleSheet.create({
   statusComplete: { backgroundColor: '#E8F5E9' },
   statusText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
   textPlanned: { color: '#8E8E93' },
-  textComplete: { color: '#34C759' },
+  textComplete: { color: Colors.success },
 
-  divider: { height: 1, backgroundColor: '#E5E5EA', marginVertical: 24 },
+  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 24 },
   
   sectionLabel: { fontSize: 13, fontWeight: '700', color: '#8E8E93', textTransform: 'uppercase', marginBottom: 12 },
   
@@ -193,10 +196,10 @@ const styles = StyleSheet.create({
   descSection: { marginBottom: 20 },
   description: { fontSize: 16, lineHeight: 24, color: '#333' },
 
-  bottomActions: { flexDirection: 'row', padding: 16, borderTopWidth: 1, borderTopColor: '#E5E5EA', backgroundColor: '#FFF' },
+  bottomActions: { flexDirection: 'row', padding: 16, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: '#FFF' },
   button: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginHorizontal: 6 },
   deleteButton: { backgroundColor: '#FFF0F0' },
-  editButton: { backgroundColor: '#007AFF' },
-  deleteText: { color: '#FF3B30', fontWeight: '600', marginLeft: 8 },
+  editButton: { backgroundColor: Colors.primary },
+  deleteText: { color: Colors.danger, fontWeight: '600', marginLeft: 8 },
   editText: { color: '#FFF', fontWeight: '600', marginLeft: 8 },
 });

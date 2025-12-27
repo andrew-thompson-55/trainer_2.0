@@ -5,6 +5,7 @@ import { api } from '../../services/api';
 import { useFocusEffect, useRouter } from 'expo-router'; 
 import { format, parseISO } from 'date-fns';
 import { Colors, Layout, Typography } from '../../theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CalendarScreen() {
   const router = useRouter(); 
@@ -73,6 +74,12 @@ export default function CalendarScreen() {
 
   const getActivityColor = (type: string) => Colors.activity[type] || Colors.activity.other;
 
+  const handleDayPress = async (day: any) => {
+    setSelectedDate(day.dateString);
+    // Save this date so Itinerary knows what to look at
+    await AsyncStorage.setItem('chimera_active_date', day.dateString);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -81,10 +88,10 @@ export default function CalendarScreen() {
       
       <View style={styles.calendarContainer}>
         <Calendar
-          // 👇 ENABLE MULTI-DOT MODE
+        
+        // 👇 ENABLE MULTI-DOT MODE
           markingType={'multi-dot'}
-          
-          onDayPress={(day: any) => setSelectedDate(day.dateString)}
+          onDayPress={handleDayPress}
           
           markedDates={{
             ...markedDates,
