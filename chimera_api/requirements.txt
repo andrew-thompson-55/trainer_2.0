@@ -7,3 +7,4 @@ google-generativeai
 google-api-python-client 
 google-auth
 pyjwt
+cryptography

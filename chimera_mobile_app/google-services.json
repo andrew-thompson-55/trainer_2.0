@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "247141696720",
+    "project_id": "gen-lang-client-0854924118",
+    "storage_bucket": "gen-lang-client-0854924118.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:247141696720:android:0e06951618b1273c708ad5",
+        "android_client_info": {
+          "package_name": "com.chimera.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPo0Nvq23yOLPZEPDpVeyStPNrl2D2x8g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

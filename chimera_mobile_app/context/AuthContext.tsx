@@ -2,16 +2,14 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { useRouter, useSegments } from 'expo-router';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 
-// 🛑 REPLACE WITH YOUR CLIENT ID FROM GOOGLE CLOUD CONSOLE
-const GOOGLE_WEB_CLIENT_ID = '627552405695-pvcsvugq5hro67q7q05gshsttgcs1adh.apps.googleusercontent.com';
-// const ANDROID_CLIENT_ID = ; // android client ID is in the helper docs, unused currently.
+// 👇 NATIVE LIBRARY (No more expo-auth-session)
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
+// 🛑 REPLACE WITH YOUR WEB CLIENT ID
+// Even though this is a native app, we use the WEB ID for configuration to get the ID Token.
+const WEB_CLIENT_ID = '627552405695-pvcsvugq5hro67q7q05gshsttgcs1adh.apps.googleusercontent.com';
 const API_BASE = 'https://trainer-2-0.onrender.com/v1';
-
-WebBrowser.maybeCompleteAuthSession();
 
 type User = {
   id: string;
@@ -24,8 +22,8 @@ type User = {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  signInWithGoogle: () => void;
-  signOut: () => void;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
   completeOnboarding: (data: any) => Promise<void>;
   deleteAccount: () => Promise<void>;
 }
@@ -37,32 +35,42 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const segments = useSegments();
 
- const [request, response, promptAsync] = Google.useAuthRequest({
-  // 1. Use the WEB CLIENT ID for all platforms
-  androidClientId: GOOGLE_WEB_CLIENT_ID,
-  iosClientId: GOOGLE_WEB_CLIENT_ID,
-  webClientId: GOOGLE_WEB_CLIENT_ID,
-
-  // 2. Force the Proxy Redirect
-  redirectUri: makeRedirectUri({
-      useProxy: true,
-      scheme: 'chimeramobileapp'
-  })
-});
-
+  // 1. Configure Native Google Sign In
   useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      exchangeGoogleToken(id_token);
+    GoogleSignin.configure({
+      webClientId: WEB_CLIENT_ID, 
+      offlineAccess: false,
+    });
+  }, []);
+
+  // 2. The Login Action
+  const signInWithGoogle = async () => {
+    try {
+      setIsLoading(true);
+      await GoogleSignin.hasPlayServices();
+      
+      // Opens the Native System Dialog (Fast & Secure)
+      const userInfo = await GoogleSignin.signIn();
+      
+      // Get the ID Token to send to Backend
+      const idToken = userInfo.data?.idToken || userInfo.idToken;
+
+      if (idToken) {
+        await exchangeGoogleToken(idToken);
+      } else {
+        throw new Error("No ID Token found");
+      }
+    } catch (error) {
+      console.log("Google Sign In Error", error);
+      alert("Login cancelled or failed");
+      setIsLoading(false);
     }
-  }, [response]);
+  };
 
   const exchangeGoogleToken = async (googleToken: string) => {
-    setIsLoading(true);
     try {
         const res = await fetch(`${API_BASE}/auth/google`, {
             method: 'POST',
@@ -86,13 +94,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
     } catch (e) {
         console.error(e);
-        setError('Unable to sign in. Please try again.');
+        alert("Backend connection failed.");
     } finally {
         setIsLoading(false);
     }
   };
 
-  // Load Session on Startup
+  // 3. Verify Token Validity (Backend Check)
+  const verifyToken = async (token: string): Promise<boolean> => {
+    try {
+        const res = await fetch(`${API_BASE}/auth/verify`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        return res.ok;
+    } catch (e) {
+        return false;
+    }
+  };
+
+  // 4. Load Session on Startup
   useEffect(() => {
     const loadSession = async () => {
       try {
@@ -100,58 +120,53 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const userInfoStr = await AsyncStorage.getItem('chimera_user_info');
         
         if (token && userInfoStr) {
-        // Verify token is still valid
-        const isValid = await verifyToken(token);
-        if (isValid) {
-            const userInfo = JSON.parse(userInfoStr);
-            setUser({ ...userInfo, token, isNewUser: false });
-        } else {
-            // Token expired, clear it
-            await signOut();
-        }
+            // Check if token is still valid
+            const isValid = await verifyToken(token);
+            if (isValid) {
+                const userInfo = JSON.parse(userInfoStr);
+                setUser({ ...userInfo, token, isNewUser: false }); 
+            } else {
+                await signOut();
+            }
         }
       } catch (e) {
-        console.error('Failed to load session:', e);
-        // Maybe clear corrupted data
-        await SecureStore.deleteItemAsync('chimera_token');
-        await AsyncStorage.removeItem('chimera_user_info');
+          console.log("Error loading session", e);
       }
       setIsLoading(false);
     };
     loadSession();
   }, []);
 
-  // Protected Routes
+  // 5. Routing Protection (Gatekeeper)
   useEffect(() => {
     if (isLoading) return;
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!user && !inAuthGroup) {
-        router.replace('/login');
+      // Not logged in -> Go to Login
+      router.replace('/login');
     } else if (user && inAuthGroup) {
-        if (inAuthGroup) {
-            if (user.isNewUser) {
-            router.replace('/onboarding');
-            } else {
-            router.replace('/(tabs)');
-            }
-        }
+      // Logged in -> Go Inside
+      if (user.isNewUser) {
+        router.replace('/onboarding');
+      } else {
+        router.replace('/(tabs)');
+      }
     }
-  }, [user, isLoading]);
+  }, [user, segments, isLoading]);
 
   const signOut = async () => {
+    try {
+        await GoogleSignin.signOut();
+    } catch (e) {
+        console.log("Error signing out of Google", e);
+    }
     await SecureStore.deleteItemAsync('chimera_token');
     await AsyncStorage.removeItem('chimera_user_info');
     setUser(null);
   };
 
-  type OnboardingData = {
-    firstName: string;
-    lastName: string;
-    // whatever fields you collect
-  };
-
-  const completeOnboarding = async (data: OnboardingData) => {
+  const completeOnboarding = async (data: any) => {
     if (!user) return;
     try {
         await fetch(`${API_BASE}/users/profile`, {
@@ -179,7 +194,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${user.token}` }
         });
-        signOut();
+        await signOut();
     } catch (e) {
         alert("Failed to delete account");
     }
@@ -188,8 +203,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <AuthContext.Provider value={{ 
         user, 
-        isLoading: isLoading || !request, 
-        signInWithGoogle: () => promptAsync(), 
+        isLoading, 
+        signInWithGoogle, 
         signOut, 
         completeOnboarding,
         deleteAccount 
