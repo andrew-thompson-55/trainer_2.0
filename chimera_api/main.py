@@ -1,11 +1,15 @@
 import os
 import google.generativeai as genai
 from datetime import datetime, timedelta, timezone
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, APIRouter, Depends, Header
 from dotenv import load_dotenv
 from typing import List, Optional
 from uuid import UUID
 from fastapi.responses import RedirectResponse, HTMLResponse
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from pydantic import BaseModel
+import jwt  # PyJWT
 
 # Internal modules
 # ADDED: StravaWebhookEvent, StravaChallengeResponse
@@ -24,6 +28,12 @@ from db_client import supabase_admin
 from ai_tools import tools_schema, execute_tool_call
 
 load_dotenv()
+
+# CONFIG
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+JWT_SECRET = os.getenv("JWT_SECRET")
+
+router = APIRouter()
 
 app = FastAPI()
 
@@ -110,6 +120,71 @@ async def chat_with_gemini(request: ChatRequest):
     except Exception as e:
         print(f"AI Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- 1. THE LOGIN ENDPOINT/ google auth endpoints ---
+class GoogleAuthRequest(BaseModel):
+    token: str
+
+
+@router.post("/auth/google")
+def login_with_google(data: GoogleAuthRequest, db: Session = Depends(get_db)):
+    try:
+        # A. Verify Google Token
+        id_info = id_token.verify_oauth2_token(
+            data.token, requests.Request(), GOOGLE_CLIENT_ID
+        )
+        email = id_info["email"]
+        name = id_info.get("name", "Athlete")
+        google_sub = id_info["sub"]
+
+        # B. Check DB
+        user = db.query(User).filter(User.email == email).first()
+        is_new_user = False
+
+        if not user:
+            # Create User
+            is_new_user = True
+            user = User(email=email, name=name, google_id=google_sub)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        # C. Create Session Token (JWT)
+        payload = {
+            "sub": str(user.id),
+            "email": user.email,
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(days=30),
+        }
+        token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+        return {
+            "token": token,
+            "user": {"id": user.id, "email": user.email, "name": user.name},
+            "isNewUser": is_new_user,
+        }
+
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Google Token")
+
+
+# --- 2. DELETE ACCOUNT (For Testing) ---
+@router.delete("/users/me")
+def delete_account(authorization: str = Header(None), db: Session = Depends(get_db)):
+    # Extract ID from JWT
+    token = authorization.replace("Bearer ", "")
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["sub"]
+
+        # Delete User (Cascade deletes workouts/logs usually)
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            db.delete(user)
+            db.commit()
+            return {"status": "deleted"}
+    except:
+        raise HTTPException(status_code=401, detail="Invalid Token")
 
 
 # --- WORKOUT ENDPOINTS ---
