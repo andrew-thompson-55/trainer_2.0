@@ -127,45 +127,59 @@ class GoogleAuthRequest(BaseModel):
     token: str
 
 
-@router.post("/auth/google")
-def login_with_google(data: GoogleAuthRequest, db: Session = Depends(get_db)):
+# ✅ CORRECT (Uses your existing Supabase connection)
+@app.post("/v1/auth/google", tags=["Auth"])
+def login_with_google(body: dict):  # We can just use a raw dict for simplicity
+    """
+    1. Receives Google ID Token from App.
+    2. Verifies it with Google.
+    3. Finds or Creates User in DB (Supabase).
+    4. Returns a custom JWT session token.
+    """
+    token = body.get("token")
+    if not token:
+        raise HTTPException(status_code=400, detail="Missing token")
+
     try:
         # A. Verify Google Token
         id_info = id_token.verify_oauth2_token(
-            data.token, requests.Request(), GOOGLE_CLIENT_ID
+            token, google_requests.Request(), GOOGLE_CLIENT_ID
         )
-        email = id_info["email"]
-        name = id_info.get("name", "Athlete")
-        google_sub = id_info["sub"]
 
-        # B. Check DB
-        user = db.query(User).filter(User.email == email).first()
+        email = id_info.get("email")
+        google_sub = id_info.get("sub")
+        name = id_info.get("name", "Athlete")
+
+        # B. Check DB (Supabase)
+        # We use supabase_admin directly, NO 'get_db' needed
+        response = (
+            supabase_admin.table("users").select("*").eq("email", email).execute()
+        )
+        user = None
         is_new_user = False
 
-        if not user:
+        if response.data and len(response.data) > 0:
+            user = response.data[0]
+        else:
             # Create User
             is_new_user = True
-            user = User(email=email, name=name, google_id=google_sub)
-            db.add(user)
-            db.commit()
-            db.refresh(user)
+            new_user_data = {"email": email, "name": name, "google_id": google_sub}
+            insert_res = supabase_admin.table("users").insert(new_user_data).execute()
+            user = insert_res.data[0]
 
         # C. Create Session Token (JWT)
-        payload = {
-            "sub": str(user.id),
-            "email": user.email,
-            "exp": datetime.datetime.utcnow() + datetime.timedelta(days=30),
-        }
-        token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+        expiry = datetime.now(timezone.utc) + timedelta(days=30)
+        payload = {"sub": str(user["id"]), "email": user["email"], "exp": expiry}
+        session_token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
-        return {
-            "token": token,
-            "user": {"id": user.id, "email": user.email, "name": user.name},
-            "isNewUser": is_new_user,
-        }
+        return {"token": session_token, "user": user, "isNewUser": is_new_user}
 
-    except ValueError:
+    except ValueError as e:
+        print(f"Auth Error: {e}")
         raise HTTPException(status_code=401, detail="Invalid Google Token")
+    except Exception as e:
+        print(f"Server Auth Error: {e}")
+        raise HTTPException(status_code=500, detail="Login failed")
 
 
 # --- 2. DELETE ACCOUNT (For Testing) ---
