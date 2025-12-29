@@ -182,23 +182,57 @@ def login_with_google(body: dict):  # We can just use a raw dict for simplicity
         raise HTTPException(status_code=500, detail="Login failed")
 
 
-# --- 2. DELETE ACCOUNT (For Testing) ---
-@router.delete("/users/me")
-def delete_account(authorization: str = Header(None), db: Session = Depends(get_db)):
-    # Extract ID from JWT
-    token = authorization.replace("Bearer ", "")
+# --- 1. VERIFY SESSION (Startup Check) ---
+@app.get("/v1/auth/verify", tags=["Auth"])
+def verify_session(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """
+    Called by App on startup to check if the stored token is still valid.
+    """
+    token = credentials.credentials
+    try:
+        # Decode and check expiry
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        return {"status": "valid", "user_id": payload["sub"]}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+# --- 2. DELETE ACCOUNT (Dev Tool) ---
+@app.delete("/v1/users/me", tags=["Auth"])
+def delete_my_account(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user_id = payload["sub"]
 
-        # Delete User (Cascade deletes workouts/logs usually)
-        user = db.query(User).filter(User.id == user_id).first()
-        if user:
-            db.delete(user)
-            db.commit()
-            return {"status": "deleted"}
-    except:
-        raise HTTPException(status_code=401, detail="Invalid Token")
+        # ✅ FIX: Use supabase_admin directly (No 'get_db')
+        supabase_admin.table("users").delete().eq("id", user_id).execute()
+
+        return {"status": "deleted"}
+    except Exception as e:
+        print(f"Delete Error: {e}")
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+# --- 3. UPDATE PROFILE (Onboarding) ---
+@app.put("/v1/users/profile", tags=["Auth"])
+def update_profile(
+    data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        user_id = payload["sub"]
+
+        # ✅ FIX: Use supabase_admin directly (No 'get_db')
+        supabase_admin.table("users").update(data).eq("id", user_id).execute()
+
+        return {"status": "updated"}
+    except Exception as e:
+        print(f"Update Error: {e}")
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 # --- WORKOUT ENDPOINTS ---
