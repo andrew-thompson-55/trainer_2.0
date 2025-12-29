@@ -6,10 +6,12 @@ from dotenv import load_dotenv
 from typing import List, Optional
 from uuid import UUID
 from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from pydantic import BaseModel
 import jwt  # PyJWT
+
 
 # Internal modules
 # ADDED: StravaWebhookEvent, StravaChallengeResponse
@@ -28,6 +30,9 @@ from db_client import supabase_admin
 from ai_tools import tools_schema, execute_tool_call
 
 load_dotenv()
+
+# --- SECURITY CONFIG (This was missing!) ---
+security = HTTPBearer()
 
 # CONFIG
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
