@@ -4,25 +4,70 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Layout, Typography } from '../../theme';
-import { useAuth } from '../../context/AuthContext'; // 👈 Import Auth Hook
+import { Colors, Typography } from '../../theme';
+import { useAuth } from '../../context/AuthContext'; // 👈 Need this for the Token
 
 const API_BASE = 'https://trainer-2-0.onrender.com/v1';
 const STRAVA_CLIENT_ID = '176319'; 
 
 export default function SettingsScreen() {
-  const { signOut } = useAuth(); // 👈 Get signOut function
+  const { signOut, user } = useAuth(); // 👈 Grab 'user' to get the token
   const [loading, setLoading] = useState(false);
   const [useGraphView, setUseGraphView] = useState(false);
+  
+  // 👇 1. Listen for the Strava Redirect
+  const url = Linking.useURL();
 
-  // Load Setting on Mount
+  useEffect(() => {
+    if (url) {
+      const { queryParams } = Linking.parse(url);
+      if (queryParams?.code) {
+        exchangeStravaCode(queryParams.code as string);
+      } else if (queryParams?.error) {
+        Alert.alert("Strava Error", "Connection denied.");
+      }
+    }
+  }, [url]);
+
+  // 👇 2. The Missing Link: Exchange Code WITH Header
+  const exchangeStravaCode = async (code: string) => {
+    if (!user?.token) return; // Safety check
+
+    setLoading(true);
+    try {
+      console.log("Exchanging Code:", code);
+      const res = await fetch(`${API_BASE}/integrations/strava/exchange`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.token}` // 👈 THIS WAS MISSING!
+        },
+        body: JSON.stringify({ code }),
+      });
+
+      if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || "Exchange failed");
+      }
+
+      const data = await res.json();
+      Alert.alert("Success", `Connected to ${data.athlete?.firstname || 'Strava'}!`);
+      
+    } catch (e: any) {
+      console.error("Strava Exchange Error:", e);
+      Alert.alert("Connection Failed", e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load Preferences
   useEffect(() => {
     AsyncStorage.getItem('chimera_stats_view_pref').then(val => {
         setUseGraphView(val === 'graph');
     });
   }, []);
 
-  // Toggle Handler
   const toggleStatsView = async (value: boolean) => {
       setUseGraphView(value);
       await AsyncStorage.setItem('chimera_stats_view_pref', value ? 'graph' : 'grid');
@@ -31,13 +76,17 @@ export default function SettingsScreen() {
   const handleConnectStrava = async () => {
     setLoading(true);
     try {
+      // Create a specific redirect URL for the app to catch
+      // This will look like: chimera://redirect
       const returnUrl = Linking.createURL('redirect'); 
+      
       const backendRedirect = `${API_BASE}/integrations/strava/redirect`;
       const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(backendRedirect)}&approval_prompt=force&scope=read,activity:read_all&state=${encodeURIComponent(returnUrl)}`;
+      
       await WebBrowser.openBrowserAsync(authUrl);
+      // Browser opens -> User approves -> Strava -> Backend -> App (Deep Link) -> useEffect above catches it.
     } catch (error) {
       Alert.alert("Error", "Failed to launch browser.");
-    } finally {
       setLoading(false);
     }
   };
@@ -50,7 +99,7 @@ export default function SettingsScreen() {
 
       <View style={styles.content}>
         
-        {/* PREFERENCES SECTION */}
+        {/* PREFERENCES */}
         <Text style={styles.sectionTitle}>Preferences</Text>
         <View style={styles.row}>
             <View style={styles.rowLeft}>
@@ -60,16 +109,13 @@ export default function SettingsScreen() {
             <Switch 
                 value={useGraphView} 
                 onValueChange={toggleStatsView}
-                trackColor={{ false: Colors.border, true: Colors.primary }}
+                trackColor={{ false: '#C7C7CC', true: Colors.primary }}
             />
         </View>
-        <Text style={styles.helperText}>
-            Show workout stats as bars instead of a grid.
-        </Text>
 
         <View style={{ height: 24 }} />
 
-        {/* INTEGRATIONS SECTION */}
+        {/* INTEGRATIONS */}
         <Text style={styles.sectionTitle}>Integrations</Text>
         
         <TouchableOpacity 
@@ -90,20 +136,14 @@ export default function SettingsScreen() {
 
         <View style={{ height: 24 }} />
 
-        {/* 👇 NEW ACCOUNT SECTION */}
+        {/* ACCOUNT */}
         <Text style={styles.sectionTitle}>Account</Text>
-        <TouchableOpacity 
-            style={styles.row} 
-            onPress={signOut}
-        >
+        <TouchableOpacity style={styles.row} onPress={signOut}>
             <View style={styles.rowLeft}>
                 <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
                 <Text style={[styles.rowText, { color: '#FF3B30' }]}>Log Out</Text>
             </View>
         </TouchableOpacity>
-        <Text style={styles.helperText}>
-            Sign out of your account on this device.
-        </Text>
 
       </View>
     </SafeAreaView>
@@ -111,8 +151,8 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
   titleText: Typography.header,
   content: { padding: 20 },
   sectionTitle: { fontSize: 13, color: '#8E8E93', fontWeight: '600', textTransform: 'uppercase', marginBottom: 8, marginLeft: 4 },

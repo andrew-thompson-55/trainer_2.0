@@ -1,33 +1,63 @@
 ```mermaid
 erDiagram
-    USER ||--o{ WORKOUT : "has many"
+    %% RELATIONSHIPS
+    USER ||--|| USER_SETTINGS : "has profile"
+    USER ||--o{ PLANNED_WORKOUT : "plans"
+    USER ||--o{ COMPLETED_ACTIVITY : "completes"
     USER ||--o{ DAILY_LOG : "logs daily"
     
-    %% PK and FK are Primary key and Foreign key
+    %% The "Magic Link" between Plan and Actual
+    PLANNED_WORKOUT |o--o| COMPLETED_ACTIVITY : "matched with"
+
+    %% ENTITIES
     USER {
-        string id PK
+        uuid id PK
         string email
+        string name
         string google_id
+        string avatar_url
+        datetime created_at
+    }
+
+    USER_SETTINGS {
+        uuid user_id PK "FK -> USER.id"
+        string strava_access_token
+        string strava_refresh_token
+        string strava_athlete_id
+        datetime strava_expires_at
         float weight_kg
         int age
         string sex
+        string preferred_units "imperial/metric"
     }
 
-    WORKOUT {
-        string id PK
-        string user_id FK
+    PLANNED_WORKOUT {
+        uuid id PK
+        uuid user_id FK
         string title
         string description
-        string activity_type "run, bike, etc"
+        string activity_type
         datetime start_time
         datetime end_time
-        string status "planned, completed"
-        json linked_activity_data "Strava Data"
+        string status "planned, completed, skipped"
+    }
+
+    COMPLETED_ACTIVITY {
+        uuid id PK
+        uuid user_id FK
+        uuid planned_workout_id FK "Nullable"
+        string source_type "strava, garmin, manual"
+        string source_id "strava_activity_id"
+        float distance_meters
+        int moving_time_seconds
+        float total_elevation_gain
+        int average_heartrate
+        json activity_data_blob "Full Strava JSON"
     }
 
     DAILY_LOG {
-        string date PK "YYYY-MM-DD"
-        string user_id FK
+        date date PK "YYYY-MM-DD"
+        uuid user_id FK
         float sleep_total
         float deep_sleep
         float rem_sleep

@@ -69,6 +69,13 @@ def exchange_strava_token(
             "strava_athlete_id": str(strava_data.get("athlete", {}).get("id")),
             "strava_expires_at": strava_data.get("expires_at"),
         }
+        # In your /exchange endpoint, before the DB call:
+        import os
+
+        print(f"DEBUG CHECK: Connecting to DB: {os.getenv('DATABASE_URL')}")
+        print(
+            f"DEBUG CHECK: User ID being used: '{user_id}' (Length: {len(str(user_id))})"
+        )
         # Upsert into user_settings
         supabase_admin.table("user_settings").upsert(data_to_save).execute()
         return {"status": "connected", "athlete": strava_data.get("athlete")}
