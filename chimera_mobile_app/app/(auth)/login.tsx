@@ -11,7 +11,7 @@ export default function LoginScreen() {
 
   return (
       <View style={styles.container}>
-        
+      <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.hero}>
           <Ionicons name="flash" size={80} color={Colors.primary} />
           <Text style={styles.title}>CHIMERA</Text>
