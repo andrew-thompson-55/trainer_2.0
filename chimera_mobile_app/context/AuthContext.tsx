@@ -138,21 +138,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   // 5. Routing Protection (Gatekeeper)
+  // 5. Routing Protection (The Strict Gatekeeper)
   useEffect(() => {
     if (isLoading) return;
+
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!user && !inAuthGroup) {
-      // Not logged in -> Go to Login
-      router.replace('/login');
+      // ⛔️ Not logged in? Go to the Auth Room.
+      router.replace('/(auth)/login');
     } else if (user && inAuthGroup) {
-      // Logged in -> Go Inside
+      // ✅ Logged in but stuck in the Auth Room? Get out!
       if (user.isNewUser) {
         router.replace('/onboarding');
       } else {
         router.replace('/(tabs)');
       }
     }
+    // Note: If user is logged in and NOT in auth group (e.g. inside tabs), 
+    // we do nothing. They are where they belong.
   }, [user, segments, isLoading]);
 
   const signOut = async () => {

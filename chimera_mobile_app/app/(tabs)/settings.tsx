@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Alert, SafeAreaView, Switch } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 👈 Import
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Layout, Typography } from '../../theme';
+import { useAuth } from '../../context/AuthContext'; // 👈 Import Auth Hook
 
-// !!! YOUR RENDER URL !!!
 const API_BASE = 'https://trainer-2-0.onrender.com/v1';
 const STRAVA_CLIENT_ID = '176319'; 
 
 export default function SettingsScreen() {
+  const { signOut } = useAuth(); // 👈 Get signOut function
   const [loading, setLoading] = useState(false);
-  const [useGraphView, setUseGraphView] = useState(false); // 👈 New State
+  const [useGraphView, setUseGraphView] = useState(false);
 
   // Load Setting on Mount
   useEffect(() => {
@@ -86,6 +87,24 @@ export default function SettingsScreen() {
         <Text style={styles.helperText}>
             {loading ? "Connecting..." : "Import your activities automatically."}
         </Text>
+
+        <View style={{ height: 24 }} />
+
+        {/* 👇 NEW ACCOUNT SECTION */}
+        <Text style={styles.sectionTitle}>Account</Text>
+        <TouchableOpacity 
+            style={styles.row} 
+            onPress={signOut}
+        >
+            <View style={styles.rowLeft}>
+                <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
+                <Text style={[styles.rowText, { color: '#FF3B30' }]}>Log Out</Text>
+            </View>
+        </TouchableOpacity>
+        <Text style={styles.helperText}>
+            Sign out of your account on this device.
+        </Text>
+
       </View>
     </SafeAreaView>
   );
