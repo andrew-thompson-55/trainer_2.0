@@ -8,7 +8,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 // 🛑 REPLACE WITH YOUR WEB CLIENT ID
 // Even though this is a native app, we use the WEB ID for configuration to get the ID Token.
-const WEB_CLIENT_ID = '627552405695-pvcsvugq5hro67q7q05gshsttgcs1adh.apps.googleusercontent.com';
+const WEB_CLIENT_ID = '247141696720-6upuejdua6clh49utvobf6a007pthgtd.apps.googleusercontent.com';
 const API_BASE = 'https://trainer-2-0.onrender.com/v1';
 
 type User = {

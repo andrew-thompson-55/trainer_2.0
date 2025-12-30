@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from google.oauth2 import id_token
-from google.auth.transport import requests
+from google.auth.transport import requests as google_requests
 from pydantic import BaseModel
 import jwt  # PyJWT
 
