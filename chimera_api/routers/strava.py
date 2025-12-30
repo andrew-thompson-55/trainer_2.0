@@ -34,7 +34,7 @@ def exchange_strava_token(
 ):
     """
     Exchanges Strava Code for Access Token.
-    REQUIRES: 'Authorization: Bearer <token>' header from App.
+    ASSUMPTION: User already exists in DB (handled by Auth Triggers).
     """
     # A. Identify User
     token = credentials.credentials
@@ -56,33 +56,39 @@ def exchange_strava_token(
     )
 
     if not response.ok:
-        print(f"Strava Exchange Failed: {response.text}")
         raise HTTPException(status_code=400, detail="Strava exchange failed")
 
     strava_data = response.json()
 
-    # C. Save to DB
+    # C. Update DB (Strict Update)
     try:
-        data_to_save = {
-            "user_id": user_id,
+        data_to_update = {
             "strava_access_token": strava_data.get("access_token"),
             "strava_refresh_token": strava_data.get("refresh_token"),
             "strava_athlete_id": str(strava_data.get("athlete", {}).get("id")),
             "strava_expires_at": strava_data.get("expires_at"),
+            "updated_at": "now()",
         }
-        # In your /exchange endpoint, before the DB call:
-        import os
 
-        print(f"DEBUG CHECK: Connecting to DB: {os.getenv('DATABASE_URL')}")
-        print(
-            f"DEBUG CHECK: User ID being used: '{user_id}' (Length: {len(str(user_id))})"
+        # We strictly UPDATE. If the user_settings row is missing, this returns error or 0 rows.
+        # This enforces that users must be properly initialized by the Auth system first.
+        result = (
+            supabase_admin.table("user_settings")
+            .update(data_to_update)
+            .eq("user_id", user_id)
+            .execute()
         )
-        # Upsert into user_settings
-        supabase_admin.table("user_settings").upsert(data_to_save).execute()
+
+        # Optional: Check if update actually happened
+        if not result.data:
+            # This means the Trigger failed or the user is in a bad state
+            raise Exception("User settings not found. Please re-login to fix account.")
+
         return {"status": "connected", "athlete": strava_data.get("athlete")}
+
     except Exception as e:
         print(f"DB Error: {e}")
-        raise HTTPException(status_code=500, detail="Database write failed")
+        raise HTTPException(status_code=500, detail="Database update failed")
 
 
 # --- 2. REDIRECT BOUNCER ---
