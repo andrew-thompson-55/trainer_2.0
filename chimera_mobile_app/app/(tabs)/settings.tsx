@@ -100,6 +100,8 @@ export default function SettingsScreen() {
         Linking.openURL(data.url);
       } else {
         console.error("Backend error:", data);
+        // FAIL: We got a 200 OK, but no URL?
+        throw new Error("Backend returned success but no URL found.");
       }
 
     } catch (error) {

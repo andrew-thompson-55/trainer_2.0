@@ -152,7 +152,7 @@ async def webhook_strava_event(payload: StravaWebhookEvent):
 # --- 4. Integrations ---
 
 
-@router.get("/v1/integrations/strava/auth-url")
+@router.get("/integrations/strava/auth-url")
 def get_strava_auth_url(return_url: str):
     """
     Generates the Strava OAuth URL on the server side.
