@@ -143,11 +143,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isRoot = segments.length === 0; // 👈 Check if we are at "/"
 
     if (!user && !inAuthGroup) {
       // ⛔️ Not logged in? Go to the Auth Room.
       router.replace('/(auth)/login');
-    } else if (user && inAuthGroup) {
+    } else if (user && (inAuthGroup || isRoot) {
       // ✅ Logged in but stuck in the Auth Room? Get out!
       if (user.isNewUser) {
         router.replace('/onboarding');
