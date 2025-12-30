@@ -8,7 +8,6 @@ import { Colors, Typography } from '../../theme';
 import { useAuth } from '../../context/AuthContext'; // 👈 Need this for the Token
 
 const API_BASE = 'https://trainer-2-0.onrender.com/v1';
-const STRAVA_CLIENT_ID = '176319'; 
 
 export default function SettingsScreen() {
   const { signOut, user } = useAuth(); // 👈 Grab 'user' to get the token
@@ -74,20 +73,37 @@ export default function SettingsScreen() {
   };
 
   const handleConnectStrava = async () => {
-    setLoading(true);
+    // Safety check: ensure user exists before trying to get the token
+    if (!user || !user.token) {
+      console.error("No user logged in");
+      return;
+    }
+
+    const returnUrl = Linking.createURL('redirect');
+
     try {
-      // Create a specific redirect URL for the app to catch
-      // This will look like: chimera://redirect
-      const returnUrl = Linking.createURL('redirect'); 
-      
-      const backendRedirect = `${API_BASE}/integrations/strava/redirect`;
-      const authUrl = `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(backendRedirect)}&approval_prompt=force&scope=read,activity:read_all&state=${encodeURIComponent(returnUrl)}`;
-      
-      await WebBrowser.openBrowserAsync(authUrl);
-      // Browser opens -> User approves -> Strava -> Backend -> App (Deep Link) -> useEffect above catches it.
+      const response = await fetch(
+        `${API_BASE}/integrations/strava/auth-url?return_url=${encodeURIComponent(returnUrl)}`,
+        {
+          method: 'GET',
+          headers: {
+            // 2. Use user.token here
+            'Authorization': `Bearer ${user.token}`, 
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.url) {
+        Linking.openURL(data.url);
+      } else {
+        console.error("Backend error:", data);
+      }
+
     } catch (error) {
-      Alert.alert("Error", "Failed to launch browser.");
-      setLoading(false);
+      console.error("Failed to start Strava auth:", error);
     }
   };
 

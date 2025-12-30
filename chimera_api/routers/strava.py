@@ -6,6 +6,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from db_client import supabase_admin
+from urllib.parse import urlencode
 
 # Import services if you need to use the webhook handler,
 # or you can move that logic here later.
@@ -146,3 +147,34 @@ async def webhook_strava_event(payload: StravaWebhookEvent):
                 payload.object_id, payload.owner_id
             )
     return {"status": "event received"}
+
+
+# --- 4. Integrations ---
+
+
+@router.get("/v1/integrations/strava/auth-url")
+def get_strava_auth_url(return_url: str):
+    """
+    Generates the Strava OAuth URL on the server side.
+    """
+    # Load these from your Backend .env file
+    client_id = os.getenv("STRAVA_CLIENT_ID")
+    base_url = os.getenv("API_BASE_URL")  # e.g., https://api.chimera.com
+
+    # The backend constructs the redirect URI
+    # This matches the endpoint that handles the code exchange
+    redirect_uri = f"{base_url}/integrations/strava/redirect"
+
+    params = {
+        "client_id": client_id,
+        "response_type": "code",
+        "redirect_uri": redirect_uri,
+        "approval_prompt": "force",
+        "scope": "read,activity:read_all",
+        "state": return_url,  # Pass the mobile app's deep link as 'state'
+    }
+
+    # Construct the full URL
+    strava_url = f"https://www.strava.com/oauth/authorize?{urlencode(params)}"
+
+    return {"url": strava_url}
