@@ -3,6 +3,7 @@ from uuid import UUID
 from schemas import WorkoutCreate, WorkoutResponse
 from db_client import supabase_admin
 from services import gcal_service, hard_coded_values
+from fastapi import HTTPException
 
 # TODO: Replace with your actual User UUID from Supabase Authentication > Users
 # For now, we hardcode it to bypass the need for a Login screen in the app immediately.
@@ -43,6 +44,27 @@ async def get_workouts(
 
     # Order by start time
     response = query.order("start_time", desc=False).execute()
+    return response.data
+
+
+async def get_workout(workout_id: UUID) -> dict:
+    """
+    Fetches a single workout by its unique ID.
+    """
+    response = (
+        supabase_admin.table("planned_workouts")
+        .select("*")
+        .eq("id", str(workout_id))
+        .eq("user_id", HARDCODED_USER_ID)  # Security: Ensure it belongs to this user
+        .single()  # Tells Supabase to return one object, not a list
+        .execute()
+    )
+
+    # Supabase .single() raises an error if not found,
+    # but depending on client version it might return None data.
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Workout not found")
+
     return response.data
 
 

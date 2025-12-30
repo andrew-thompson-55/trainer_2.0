@@ -119,6 +119,11 @@ async def get_workouts(
     return await workout_service.get_workouts(start_date, end_date)
 
 
+@app.get("/v1/workouts/{workout_id}", response_model=WorkoutResponse, tags=["Workouts"])
+async def get_workout(workout_id: UUID):
+    return await workout_service.get_workout(workout_id)
+
+
 @app.patch("/v1/workouts/{workout_id}", tags=["Workouts"])
 async def update_workout(workout_id: UUID, workout: dict):
     return await workout_service.update_workout(workout_id, workout)

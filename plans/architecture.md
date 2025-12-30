@@ -63,6 +63,9 @@ Chimera is an AI-powered endurance training coach. It ingests workout data from 
 2. npx eas build -p android --profile preview
 
 
-## 7. run the build to test via native app (required for google auth branches)
+## 7. run the build to test via native app
 1. eas build --profile development --platform android
-npx expo start --dev-client
+npx expo start --dev-client --tunnel
+
+## 8. google calendar json key file base 64 encoding
+python -c "import base64; open('encoded_creds.txt', 'w').write(base64.b64encode(open('service_account.json', 'rb').read()).decode())"

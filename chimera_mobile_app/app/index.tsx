@@ -1,12 +1,17 @@
 import { Stack } from 'expo-router';
-import { View, ActivityIndicator } from 'react-native';
+// app/index.tsx
+import { Redirect } from 'expo-router';
+import { useAuth } from '../context/auth';
 
 export default function Index() {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      {/* Hide the header for this screen only */}
-      <Stack.Screen options={{ headerShown: false }} />
-      <ActivityIndicator size="large" />
-    </View>
-  );
+  const { user, isLoading } = useAuth();
+  // <Stack.Screen options={{ headerShown: false }} />
+
+  if (isLoading) return <LoadingSpinner />; // Or your splash screen
+
+  // If logged in -> Go Home
+  if (user) return <Redirect href="/(tabs)/home" />;
+
+  // If not logged in -> Go Login
+  return <Redirect href="/(auth)/login" />;
 }

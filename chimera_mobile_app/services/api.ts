@@ -50,6 +50,35 @@ export const api = {
     }
   },
 
+  // --- 2. GET SINGLE WORKOUT (Read Data) ---
+  async getWorkout(id: string) {
+    const { isConnected } = await Network.getNetworkStateAsync();
+
+    // A. Try Online First
+    if (isConnected) {
+      try {
+        // Ensure your API_BASE includes '/v1' or add it here if needed: `${API_BASE}/v1/workouts/${id}`
+        const response = await fetch(`${API_BASE}/workouts/${id}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+            return await response.json();
+        }
+      } catch (e) {
+        console.log(`⚠️ getWorkout API failed for ${id}, falling back to cache.`);
+      }
+    }
+
+    // B. Offline Fallback: Search the cached list!
+    // This allows you to view details even in Airplane mode if you've loaded the list before.
+    const cachedList = await api.getCachedWorkouts();
+    const found = cachedList.find((w: any) => w.id === id);
+    
+    return found || null; 
+  },
+
   // --- 2. UPDATE WORKOUT (Write Data) ---
   async updateWorkout(id: string, updates: any) {
     const { isConnected } = await Network.getNetworkStateAsync();
