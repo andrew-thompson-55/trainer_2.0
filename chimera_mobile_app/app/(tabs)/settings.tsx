@@ -1,20 +1,21 @@
+// app/(tabs)/settings.tsx
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert, SafeAreaView, Switch } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, SafeAreaView, Switch, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography } from '../../theme';
-import { useAuth } from '../../context/AuthContext'; // 👈 Need this for the Token
+import { useAuth } from '../../context/AuthContext'; // 👈 Adjusted import path here too
 
 const API_BASE = 'https://trainer-2-0.onrender.com/v1';
 
 export default function SettingsScreen() {
-  const { signOut, user } = useAuth(); // 👈 Grab 'user' to get the token
+  const { signOut, user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [useGraphView, setUseGraphView] = useState(false);
-  
-  // 👇 1. Listen for the Strava Redirect
+  const [defaultPage, setDefaultPage] = useState('/(tabs)'); // Default to Home
+
+  // 1. HANDLE DEEP LINKS (Strava Redirect)
   const url = Linking.useURL();
 
   useEffect(() => {
@@ -28,18 +29,40 @@ export default function SettingsScreen() {
     }
   }, [url]);
 
-  // 👇 2. The Missing Link: Exchange Code WITH Header
+  // 2. LOAD PREFERENCES (Graph View + Default Page)
+  useEffect(() => {
+    // Load Graph Pref
+    AsyncStorage.getItem('chimera_stats_view_pref').then(val => {
+        setUseGraphView(val === 'graph');
+    });
+
+    // Load Default Page Pref
+    AsyncStorage.getItem('chimera_default_route').then(val => {
+       if (val) setDefaultPage(val);
+    });
+  }, []);
+
+  // 3. ACTIONS
+  const toggleStatsView = async (value: boolean) => {
+      setUseGraphView(value);
+      await AsyncStorage.setItem('chimera_stats_view_pref', value ? 'graph' : 'grid');
+  };
+
+  const handleSetDefault = async (route: string) => {
+      setDefaultPage(route);
+      await AsyncStorage.setItem('chimera_default_route', route);
+  };
+
   const exchangeStravaCode = async (code: string) => {
-    if (!user?.token) return; // Safety check
+    if (!user?.token) return; 
 
     setLoading(true);
     try {
-      console.log("Exchanging Code:", code);
       const res = await fetch(`${API_BASE}/integrations/strava/exchange`, {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${user.token}` // 👈 THIS WAS MISSING!
+            'Authorization': `Bearer ${user.token}`
         },
         body: JSON.stringify({ code }),
       });
@@ -60,20 +83,7 @@ export default function SettingsScreen() {
     }
   };
 
-  // Load Preferences
-  useEffect(() => {
-    AsyncStorage.getItem('chimera_stats_view_pref').then(val => {
-        setUseGraphView(val === 'graph');
-    });
-  }, []);
-
-  const toggleStatsView = async (value: boolean) => {
-      setUseGraphView(value);
-      await AsyncStorage.setItem('chimera_stats_view_pref', value ? 'graph' : 'grid');
-  };
-
   const handleConnectStrava = async () => {
-    // Safety check: ensure user exists before trying to get the token
     if (!user || !user.token) {
       console.error("No user logged in");
       return;
@@ -87,7 +97,6 @@ export default function SettingsScreen() {
         {
           method: 'GET',
           headers: {
-            // 2. Use user.token here
             'Authorization': `Bearer ${user.token}`, 
             'Content-Type': 'application/json',
           },
@@ -99,13 +108,12 @@ export default function SettingsScreen() {
       if (data.url) {
         Linking.openURL(data.url);
       } else {
-        console.error("Backend error:", data);
-        // FAIL: We got a 200 OK, but no URL?
         throw new Error("Backend returned success but no URL found.");
       }
 
     } catch (error) {
       console.error("Failed to start Strava auth:", error);
+      Alert.alert("Error", "Could not reach Strava service.");
     }
   };
 
@@ -115,9 +123,39 @@ export default function SettingsScreen() {
         <Text style={styles.titleText}>Settings</Text>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         
-        {/* PREFERENCES */}
+        {/* SECTION: APP STARTUP */}
+        <Text style={styles.sectionTitle}>App Startup</Text>
+        <View style={styles.startupContainer}>
+            <Text style={styles.label}>Open App To:</Text>
+            <View style={styles.pillContainer}>
+                <TouchableOpacity 
+                    style={[styles.pill, defaultPage === '/(tabs)' && styles.pillActive]}
+                    onPress={() => handleSetDefault('/(tabs)')}
+                >
+                    <Text style={[styles.pillText, defaultPage === '/(tabs)' && styles.pillTextActive]}>Home</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                    style={[styles.pill, defaultPage === '/(tabs)/itinerary' && styles.pillActive]}
+                    onPress={() => handleSetDefault('/(tabs)/itinerary')}
+                >
+                    <Text style={[styles.pillText, defaultPage === '/(tabs)/itinerary' && styles.pillTextActive]}>Plan</Text>
+                </TouchableOpacity>
+
+                 <TouchableOpacity 
+                    style={[styles.pill, defaultPage === '/(tabs)/chat' && styles.pillActive]}
+                    onPress={() => handleSetDefault('/(tabs)/chat')}
+                >
+                    <Text style={[styles.pillText, defaultPage === '/(tabs)/chat' && styles.pillTextActive]}>Coach</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+
+        <View style={{ height: 24 }} />
+
+        {/* SECTION: PREFERENCES */}
         <Text style={styles.sectionTitle}>Preferences</Text>
         <View style={styles.row}>
             <View style={styles.rowLeft}>
@@ -133,7 +171,7 @@ export default function SettingsScreen() {
 
         <View style={{ height: 24 }} />
 
-        {/* INTEGRATIONS */}
+        {/* SECTION: INTEGRATIONS */}
         <Text style={styles.sectionTitle}>Integrations</Text>
         
         <TouchableOpacity 
@@ -154,7 +192,7 @@ export default function SettingsScreen() {
 
         <View style={{ height: 24 }} />
 
-        {/* ACCOUNT */}
+        {/* SECTION: ACCOUNT */}
         <Text style={styles.sectionTitle}>Account</Text>
         <TouchableOpacity style={styles.row} onPress={signOut}>
             <View style={styles.rowLeft}>
@@ -163,7 +201,7 @@ export default function SettingsScreen() {
             </View>
         </TouchableOpacity>
 
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -173,9 +211,21 @@ const styles = StyleSheet.create({
   header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
   titleText: Typography.header,
   content: { padding: 20 },
+  
   sectionTitle: { fontSize: 13, color: '#8E8E93', fontWeight: '600', textTransform: 'uppercase', marginBottom: 8, marginLeft: 4 },
+  
+  // Row Styles
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF', padding: 16, borderRadius: 12 },
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowText: { fontSize: 17, color: '#000' },
   helperText: { marginTop: 8, marginLeft: 4, color: '#8E8E93', fontSize: 13 },
+
+  // Startup Pills
+  startupContainer: { backgroundColor: '#FFF', padding: 16, borderRadius: 12 },
+  label: { fontSize: 17, marginBottom: 12, color: '#000' },
+  pillContainer: { flexDirection: 'row', gap: 8 },
+  pill: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#F2F2F7', borderWidth: 1, borderColor: '#E5E5EA' },
+  pillActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  pillText: { color: '#000', fontWeight: '500' },
+  pillTextActive: { color: '#FFF' },
 });

@@ -3,13 +3,11 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
 
-// Define our colors manually to avoid import errors from other files
 const Colors = {
   light: { tint: '#2f95dc' },
   dark: { tint: '#fff' },
 };
 
-// Simple helper component to render icons
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof Ionicons>['name'];
   color: string;
@@ -23,23 +21,32 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        // Use the system color scheme (light or dark) to pick the tint color
         tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
       }}>
       
-      {/* Tab 1: Today (mapped to index.tsx) */}
+      {/* 1. HOME (The New Dashboard) */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Today',
+          title: 'Home',
+          tabBarIcon: ({ color, focused }) => (
+            <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} />
+          ),
+        }}
+      />
+
+      {/* 2. PLAN (The Old Itinerary) */}
+      <Tabs.Screen
+        name="itinerary"
+        options={{
+          title: 'Plan',
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'list' : 'list-outline'} color={color} />
           ),
         }}
       />
 
-      {/* Tab 2: Calendar (mapped to calendar.tsx) */}
       <Tabs.Screen
         name="calendar"
         options={{
@@ -50,7 +57,6 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Tab 3: Coach (mapped to chat.tsx) */}
       <Tabs.Screen
         name="chat"
         options={{
