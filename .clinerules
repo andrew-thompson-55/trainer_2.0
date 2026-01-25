@@ -1,0 +1,160 @@
+# Chimera Project Rules
+# Generated from: Operation Stabilize (2025-01-25)
+# Source: plans/claude_code_review.md
+
+## Project Context
+This is a mobile fitness tracking app (Chimera) with:
+- **Backend:** FastAPI (Python) on Render
+- **Frontend:** React Native (Expo) 
+- **Database:** Supabase (PostgreSQL)
+- **Auth:** Google OAuth → JWT (30-day expiry)
+
+## Critical Rules (NEVER BREAK)
+
+### Rule 1: No Hardcoded User IDs
+**Trigger:** Any file importing or defining `HARDCODED_USER_ID` or static UUIDs for user identification.
+
+**Violation Pattern:**
+```python
+# ❌ FORBIDDEN
+HARDCODED_USER_ID = "dc43c3a8-9d6a-4bc1-83da-68e7a5bfca89"
+from services.hard_coded_values import HARDCODED_USER_ID
+user_id = "some-uuid-string"  # Static assignment
+```
+
+**Correct Pattern:**
+```python
+# ✅ REQUIRED
+from dependencies import get_current_user
+user_id: str = Depends(get_current_user)  # In route
+await service.some_function(data, user_id)  # Passed to service
+```
+
+**Rationale:** Hardcoded IDs block multi-tenancy and bypass authentication entirely.
+
+---
+
+### Rule 2: No Bare `except: pass`
+**Trigger:** Any `except` block that silently swallows errors without logging.
+
+**Violation Pattern:**
+```python
+# ❌ FORBIDDEN
+try:
+    risky_operation()
+except:
+    pass
+
+try:
+    risky_operation()
+except Exception:
+    pass  # Still silent!
+```
+
+**Correct Pattern:**
+```python
+# ✅ REQUIRED - At minimum, log the error
+try:
+    risky_operation()
+except Exception as e:
+    print(f"⚠️ Operation failed: {e}")  # Or use logging module
+    # Optionally re-raise or return fallback
+```
+
+**Rationale:** Silent failures cause data corruption that goes undetected for weeks.
+
+---
+
+### Rule 3: All API Endpoints Require Authentication
+**Trigger:** Any new route in `main.py` or routers that handles user data.
+
+**Violation Pattern:**
+```python
+# ❌ FORBIDDEN - No auth dependency
+@app.get("/v1/workouts")
+async def get_workouts():
+    return await workout_service.get_workouts()
+```
+
+**Correct Pattern:**
+```python
+# ✅ REQUIRED - Auth dependency injected
+@app.get("/v1/workouts")
+async def get_workouts(user_id: str = Depends(get_current_user)):
+    return await workout_service.get_workouts(user_id)
+```
+
+**Exceptions:** Health check endpoints (`/`, `/health`) may be unauthenticated.
+
+---
+
+### Rule 4: No Hardcoded API URLs in Frontend
+**Trigger:** Any TypeScript/JavaScript file containing literal API base URLs.
+
+**Violation Pattern:**
+```typescript
+// ❌ FORBIDDEN
+const API_BASE = 'https://trainer-2-0.onrender.com/v1';
+const BACKEND_URL = 'https://trainer-2-0.onrender.com/v1/chat';
+fetch('https://trainer-2-0.onrender.com/v1/workouts')
+```
+
+**Correct Pattern:**
+```typescript
+// ✅ REQUIRED - Import from centralized config
+import { API_BASE } from '../services/config';
+import { authFetch } from '../services/authFetch';
+
+// Use authFetch for authenticated endpoints
+const response = await authFetch('/workouts');
+```
+
+**Rationale:** Multiple hardcoded URLs become a maintenance nightmare and break when deploying to staging/production.
+
+---
+
+### Rule 5: Pydantic Validation for All Input
+**Trigger:** Any endpoint accepting `dict` as request body type.
+
+**Violation Pattern:**
+```python
+# ❌ FORBIDDEN - Raw dict allows arbitrary fields
+@router.put("/users/profile")
+def update_profile(data: dict):
+    supabase.table("users").update(data).execute()
+```
+
+**Correct Pattern:**
+```python
+# ✅ REQUIRED - Explicit schema with whitelisted fields
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    timezone: Optional[str] = None
+
+@router.put("/users/profile")
+def update_profile(data: ProfileUpdate):
+    supabase.table("users").update(data.model_dump(exclude_unset=True)).execute()
+```
+
+**Rationale:** Accepting raw dicts enables injection attacks (e.g., `{"is_admin": true}`).
+
+---
+
+## Pre-Commit Checklist
+
+Before submitting code:
+
+- [ ] No hardcoded user IDs
+- [ ] No bare `except: pass` blocks
+- [ ] All new endpoints have `Depends(get_current_user)`
+- [ ] No hardcoded URLs in frontend
+- [ ] All request bodies use Pydantic schemas
+- [ ] No secrets in committed files
+- [ ] Dependencies are pinned
+
+---
+
+## References
+
+- [Technical Debt Ledger](plans/claude_code_review.md)
+- [Refactor Execution Plan](plans/refactor_plan.md)
