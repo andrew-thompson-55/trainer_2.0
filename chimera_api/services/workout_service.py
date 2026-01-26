@@ -2,18 +2,13 @@ from typing import List, Optional
 from uuid import UUID
 from schemas import WorkoutCreate, WorkoutResponse
 from db_client import supabase_admin
-from services import gcal_service, hard_coded_values
+from services import gcal_service
 from fastapi import HTTPException
 
-# TODO: Replace with your actual User UUID from Supabase Authentication > Users
-# For now, we hardcode it to bypass the need for a Login screen in the app immediately.
 
-HARDCODED_USER_ID = hard_coded_values.HARDCODED_USER_ID
-
-
-async def create_workout(workout: WorkoutCreate) -> dict:
+async def create_workout(workout: WorkoutCreate, user_id: str) -> dict:
     data = workout.model_dump()
-    data["user_id"] = HARDCODED_USER_ID
+    data["user_id"] = user_id
 
     # Convert datetimes to ISO strings for Supabase
     data["start_time"] = data["start_time"].isoformat()
@@ -31,13 +26,9 @@ async def create_workout(workout: WorkoutCreate) -> dict:
 
 
 async def get_workouts(
-    start_date: Optional[str] = None, end_date: Optional[str] = None
+    user_id: str, start_date: Optional[str] = None, end_date: Optional[str] = None
 ) -> List[dict]:
-    query = (
-        supabase_admin.table("planned_workouts")
-        .select("*")
-        .eq("user_id", HARDCODED_USER_ID)
-    )
+    query = supabase_admin.table("planned_workouts").select("*").eq("user_id", user_id)
 
     if start_date and end_date:
         query = query.gte("start_time", start_date).lte("start_time", end_date)
@@ -47,7 +38,7 @@ async def get_workouts(
     return response.data
 
 
-async def get_workout(workout_id: UUID) -> dict:
+async def get_workout(workout_id: UUID, user_id: str) -> dict:
     """
     Fetches a single workout by its unique ID.
     """
@@ -55,7 +46,7 @@ async def get_workout(workout_id: UUID) -> dict:
         supabase_admin.table("planned_workouts")
         .select("*")
         .eq("id", str(workout_id))
-        .eq("user_id", HARDCODED_USER_ID)  # Security: Ensure it belongs to this user
+        .eq("user_id", user_id)  # Security: Ensure it belongs to this user
         .single()  # Tells Supabase to return one object, not a list
         .execute()
     )
@@ -68,7 +59,7 @@ async def get_workout(workout_id: UUID) -> dict:
     return response.data
 
 
-async def update_workout(workout_id: UUID, updates: dict) -> dict:
+async def update_workout(workout_id: UUID, updates: dict, user_id: str) -> dict:
     # Ensure datetimes in updates are strings if they exist
     if "start_time" in updates and hasattr(updates["start_time"], "isoformat"):
         updates["start_time"] = updates["start_time"].isoformat()
@@ -91,7 +82,7 @@ async def update_workout(workout_id: UUID, updates: dict) -> dict:
     return response.data[0] if response.data else {}
 
 
-async def delete_workout(workout_id: UUID):
+async def delete_workout(workout_id: UUID, user_id: str):
     # Fetch first to get GCal ID before we delete the record
     data = (
         supabase_admin.table("planned_workouts")
@@ -110,7 +101,7 @@ async def delete_workout(workout_id: UUID):
     ).execute()
 
 
-async def get_linked_activity(workout_id: UUID) -> dict:
+async def get_linked_activity(workout_id: UUID, user_id: str) -> dict:
     response = (
         supabase_admin.table("completed_activities")
         .select("*")

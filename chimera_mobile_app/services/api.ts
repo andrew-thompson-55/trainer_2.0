@@ -1,9 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
-import { OfflineQueue } from './offline_queue'; 
-
-// ✅ Your Render URL
-const API_BASE = 'https://trainer-2-0.onrender.com/v1';
+import { OfflineQueue } from './offline_queue';
+import { authFetch } from './authFetch';
+import { API_BASE } from './config';
 
 const CACHE_KEYS = {
   WORKOUTS: 'chimera_cache_workouts',
@@ -23,7 +22,7 @@ export const api = {
     if (isConnected) {
       try {
         console.log("🌍 Online: Fetching fresh data...");
-        const response = await fetch(`${API_BASE}/workouts`);
+        const response = await authFetch('/workouts');
         if (!response.ok) throw new Error("Server error");
         
         const data = await response.json();
@@ -57,10 +56,8 @@ export const api = {
     // A. Try Online First
     if (isConnected) {
       try {
-        // Ensure your API_BASE includes '/v1' or add it here if needed: `${API_BASE}/v1/workouts/${id}`
-        const response = await fetch(`${API_BASE}/workouts/${id}`, {
+        const response = await authFetch(`/workouts/${id}`, {
             method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
         });
         
         if (response.ok) {
@@ -91,9 +88,8 @@ export const api = {
     // B. Network Attempt
     if (isConnected) {
       try {
-        const response = await fetch(`${API_BASE}/workouts/${id}`, {
+        const response = await authFetch(`/workouts/${id}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates),
         });
         if (response.ok) return await response.json();
@@ -122,7 +118,7 @@ export const api = {
     const { isConnected } = await Network.getNetworkStateAsync();
     if (isConnected) {
         try {
-            await fetch(`${API_BASE}/workouts/${id}`, { method: 'DELETE' });
+            await authFetch(`/workouts/${id}`, { method: 'DELETE' });
             return;
         } catch (e) { /* Fallthrough */ }
     }
@@ -140,9 +136,8 @@ export const api = {
 
     if (isConnected) {
       try {
-        const response = await fetch(`${API_BASE}/workouts`, {
+        const response = await authFetch('/workouts', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(workoutData),
         });
         
@@ -200,7 +195,7 @@ export const api = {
     // 2. If Online, Fetch & Update Cache
     if (isConnected) {
         try {
-            const response = await fetch(`${API_BASE}/daily-logs/${date}`);
+            const response = await authFetch(`/daily-logs/${date}`);
             if (response.ok) {
                 const data = await response.json();
                 // Update just this day in the big object
@@ -230,9 +225,8 @@ export const api = {
     // 2. Network Attempt
     if (isConnected) {
         try {
-            const response = await fetch(`${API_BASE}/daily-logs/${date}`, {
+            const response = await authFetch(`/daily-logs/${date}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
             });
             if (response.ok) return await response.json();
@@ -285,7 +279,6 @@ export const api = {
 
             let options: any = {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
             };
             
             if (bodyData && Object.keys(bodyData).length > 0) {
@@ -293,7 +286,7 @@ export const api = {
             }
 
             // 🚀 FIRE REQUEST
-            const res = await fetch(`${API_BASE}${item.endpoint}`, options);
+            const res = await authFetch(item.endpoint, options);
             
             // ✅ SUCCESS SCENARIO
             if (res.ok) {
@@ -350,14 +343,14 @@ export const api = {
   // --- OTHER ---
   
   async syncGCal() {
-     const response = await fetch(`${API_BASE}/workouts/sync-gcal`, { method: 'POST' });
+     const response = await authFetch('/workouts/sync-gcal', { method: 'POST' });
      if (!response.ok) throw new Error("Sync failed");
      return await response.json();
   },
 
   async getLinkedActivity(plannedWorkoutId: string) {
-    try { 
-        const response = await fetch(`${API_BASE}/workouts/${plannedWorkoutId}/activity`);
+    try {
+        const response = await authFetch(`/workouts/${plannedWorkoutId}/activity`);
         if (!response.ok) return null;
         return await response.json();
     } catch (e) { return null; } 

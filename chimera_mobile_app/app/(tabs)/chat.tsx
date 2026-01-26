@@ -1,9 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { StyleSheet, SafeAreaView, Platform, View, KeyboardAvoidingView } from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
-
-// !!! ENSURE THIS IS YOUR RENDER URL !!!
-const BACKEND_URL = 'https://trainer-2-0.onrender.com/v1/chat'; 
+import { authFetch } from '../../services/authFetch';
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<any[]>([]);
@@ -28,11 +26,8 @@ export default function ChatScreen() {
     const userMessage = newMessages[0].text;
 
     // Call the Cloud API
-    fetch(BACKEND_URL, {
+    authFetch('/chat', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ message: userMessage }),
     })
     .then(response => response.json())

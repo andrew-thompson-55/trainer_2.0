@@ -1,7 +1,7 @@
 import os
 import google.generativeai as genai
 from datetime import datetime, timedelta, timezone
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from dotenv import load_dotenv
 from typing import List, Optional
 from uuid import UUID
@@ -17,6 +17,7 @@ from schemas import (
 from services import workout_service, daily_log_service
 from db_client import supabase_admin
 from ai_tools import tools_schema, execute_tool_call
+from dependencies import get_current_user
 
 # 👇 NEW IMPORTS
 from routers import auth, strava
@@ -97,8 +98,8 @@ async def chat_with_gemini(request: ChatRequest):
                 supabase_admin.table("chat_logs").insert(
                     {"user_message": request.message, "ai_response": final_reply}
                 ).execute()
-            except:
-                pass
+            except Exception as e:
+                print(f"⚠️ Chat log failed: {e}")
 
         return {"reply": final_reply}
     except Exception as e:
@@ -108,45 +109,55 @@ async def chat_with_gemini(request: ChatRequest):
 
 # --- WORKOUTS (Kept in Main for now) ---
 @app.post("/v1/workouts", response_model=WorkoutResponse, tags=["Workouts"])
-async def create_workout(workout: WorkoutCreate):
-    return await workout_service.create_workout(workout)
+async def create_workout(
+    workout: WorkoutCreate, user_id: str = Depends(get_current_user)
+):
+    return await workout_service.create_workout(workout, user_id)
 
 
 @app.get("/v1/workouts", response_model=List[WorkoutResponse], tags=["Workouts"])
 async def get_workouts(
-    start_date: Optional[str] = None, end_date: Optional[str] = None
+    user_id: str = Depends(get_current_user),
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
 ):
-    return await workout_service.get_workouts(start_date, end_date)
+    return await workout_service.get_workouts(user_id, start_date, end_date)
 
 
 @app.get("/v1/workouts/{workout_id}", response_model=WorkoutResponse, tags=["Workouts"])
-async def get_workout(workout_id: UUID):
-    return await workout_service.get_workout(workout_id)
+async def get_workout(workout_id: UUID, user_id: str = Depends(get_current_user)):
+    return await workout_service.get_workout(workout_id, user_id)
 
 
 @app.patch("/v1/workouts/{workout_id}", tags=["Workouts"])
-async def update_workout(workout_id: UUID, workout: dict):
-    return await workout_service.update_workout(workout_id, workout)
+async def update_workout(
+    workout_id: UUID, workout: dict, user_id: str = Depends(get_current_user)
+):
+    return await workout_service.update_workout(workout_id, workout, user_id)
 
 
 @app.delete("/v1/workouts/{workout_id}", tags=["Workouts"])
-async def delete_workout(workout_id: UUID):
-    await workout_service.delete_workout(workout_id)
+async def delete_workout(workout_id: UUID, user_id: str = Depends(get_current_user)):
+    await workout_service.delete_workout(workout_id, user_id)
     return {"status": "deleted"}
 
 
 @app.get("/v1/workouts/{workout_id}/activity", tags=["Workouts"])
-async def get_linked_activity(workout_id: UUID):
-    activity = await workout_service.get_linked_activity(workout_id)
+async def get_linked_activity(
+    workout_id: UUID, user_id: str = Depends(get_current_user)
+):
+    activity = await workout_service.get_linked_activity(workout_id, user_id)
     return activity if activity else {}
 
 
 # --- DAILY LOGS (Kept in Main for now) ---
 @app.put("/v1/daily-logs/{date_str}", response_model=DailyLogResponse, tags=["Tracker"])
-async def upsert_daily_log(date_str: str, log_data: DailyLogCreate):
-    return await daily_log_service.upsert_log(date_str, log_data)
+async def upsert_daily_log(
+    date_str: str, log_data: DailyLogCreate, user_id: str = Depends(get_current_user)
+):
+    return await daily_log_service.upsert_log(date_str, log_data, user_id)
 
 
 @app.get("/v1/daily-logs/{date_str}", tags=["Tracker"])
-async def get_daily_log(date_str: str):
-    return await daily_log_service.get_log(date_str)
+async def get_daily_log(date_str: str, user_id: str = Depends(get_current_user)):
+    return await daily_log_service.get_log(date_str, user_id)

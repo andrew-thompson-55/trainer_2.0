@@ -77,3 +77,11 @@ class StravaWebhookEvent(BaseModel):
     owner_id: int
     subscription_id: int
     updates: Optional[Dict[str, Any]] = None
+
+
+# --- User Profile Models ---
+class ProfileUpdate(BaseModel):
+    """Whitelisted fields for user profile updates"""
+
+    name: Optional[str] = None
+    timezone: Optional[str] = None

@@ -1,1 +1,0 @@
-HARDCODED_USER_ID = "dc43c3a8-9d6a-4bc1-83da-68e7a5bfca89"

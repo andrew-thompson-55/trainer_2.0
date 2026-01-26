@@ -5,11 +5,11 @@ import { useRouter, useSegments } from 'expo-router';
 
 // 👇 NATIVE LIBRARY (No more expo-auth-session)
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { API_BASE } from '../services/config';
 
 // 🛑 REPLACE WITH YOUR WEB CLIENT ID
 // Even though this is a native app, we use the WEB ID for configuration to get the ID Token.
 const WEB_CLIENT_ID = '247141696720-6upuejdua6clh49utvobf6a007pthgtd.apps.googleusercontent.com';
-const API_BASE = 'https://trainer-2-0.onrender.com/v1';
 
 type User = {
   id: string;

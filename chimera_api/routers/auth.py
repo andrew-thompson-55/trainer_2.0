@@ -6,6 +6,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from db_client import supabase_admin
+from schemas import ProfileUpdate
 
 router = APIRouter(prefix="/v1", tags=["Auth"])
 security = HTTPBearer()
@@ -83,13 +84,14 @@ def delete_my_account(credentials: HTTPAuthorizationCredentials = Depends(securi
 
 @router.put("/users/profile")
 def update_profile(
-    data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)
+    data: ProfileUpdate, credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
     token = credentials.credentials
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         user_id = payload["sub"]
-        supabase_admin.table("users").update(data).eq("id", user_id).execute()
+        update_dict = data.model_dump(exclude_unset=True)
+        supabase_admin.table("users").update(update_dict).eq("id", user_id).execute()
         return {"status": "updated"}
     except Exception:
         raise HTTPException(status_code=401, detail="Unauthorized")
