@@ -1,1 +1,18 @@
 .venv
+
+# Environment variables
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+
+# System files
+.DS_Store
+
+# Logs
+*.log
+
+# Additional ignores
+google-services.json
