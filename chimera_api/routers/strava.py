@@ -1,48 +1,36 @@
 import os
+import logging
 import requests
-import jwt
 from fastapi import APIRouter, HTTPException, Depends, Query
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
 from db_client import supabase_admin
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
+from html import escape
 
 # Import services if you need to use the webhook handler,
 # or you can move that logic here later.
 from services import strava_service
-from schemas import StravaWebhookEvent, StravaChallengeResponse
+from schemas import StravaWebhookEvent, StravaChallengeResponse, StravaAuthCode
+from dependencies import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1", tags=["Integrations"])
-security = HTTPBearer()
 
 STRAVA_CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 STRAVA_CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
-JWT_SECRET = os.getenv("JWT_SECRET")
 STRAVA_VERIFY_TOKEN = os.getenv("STRAVA_VERIFY_TOKEN")
-
-
-class StravaAuthCode(BaseModel):
-    code: str
 
 
 # --- 1. TOKEN EXCHANGE (THE FIX) ---
 @router.post("/integrations/strava/exchange")
 def exchange_strava_token(
     payload: StravaAuthCode,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user_id: str = Depends(get_current_user),
 ):
     """
     Exchanges Strava Code for Access Token.
     ASSUMPTION: User already exists in DB (handled by Auth Triggers).
     """
-    # A. Identify User
-    token = credentials.credentials
-    try:
-        jwt_payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        user_id = jwt_payload["sub"]
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid Session")
 
     # B. Exchange with Strava
     response = requests.post(
@@ -87,7 +75,7 @@ def exchange_strava_token(
         return {"status": "connected", "athlete": strava_data.get("athlete")}
 
     except Exception as e:
-        print(f"DB Error: {e}")
+        logger.error(f"DB Error: {e}")
         raise HTTPException(status_code=500, detail="Database update failed")
 
 
@@ -96,17 +84,26 @@ def exchange_strava_token(
 async def strava_bounce(code: str = None, state: str = None, error: str = None):
     mobile_base_url = "chimera://redirect"
     if state:
+        # Validate state parameter to prevent open redirect
+        parsed = urlparse(state)
+        if parsed.scheme not in ["chimera", "exp"]:
+            raise HTTPException(status_code=400, detail="Invalid redirect URL")
         mobile_base_url = state
 
     if error:
-        final_url = f"{mobile_base_url}?error={error}"
-        message = f"Error: {error}"
+        final_url = f"{mobile_base_url}?error={escape(error)}"
+        message = f"Error: {escape(error)}"
         color = "#FF3B30"
     else:
         separator = "&" if "?" in mobile_base_url else "?"
-        final_url = f"{mobile_base_url}{separator}code={code}"
+        final_url = f"{mobile_base_url}{separator}code={escape(code) if code else ''}"
         message = "Strava Connected!"
         color = "#FC4C02"
+
+    # Escape all user-controlled content before injecting into HTML
+    safe_message = escape(message)
+    safe_color = escape(color)
+    safe_final_url = escape(final_url)
 
     html_content = f"""
     <html>
@@ -115,16 +112,16 @@ async def strava_bounce(code: str = None, state: str = None, error: str = None):
             <style>
                 body {{ font-family: sans-serif; text-align: center; padding: 40px 20px; background-color: #f2f2f7; }}
                 .card {{ background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-                a {{ display: block; background: {color}; color: white; padding: 16px; text-decoration: none; border-radius: 12px; font-weight: bold; }}
+                a {{ display: block; background: {safe_color}; color: white; padding: 16px; text-decoration: none; border-radius: 12px; font-weight: bold; }}
             </style>
         </head>
         <body>
             <div class="card">
-                <h2>{message}</h2>
+                <h2>{safe_message}</h2>
                 <p>Click below to return to the app.</p>
                 <a href="{final_url}">Return to App</a>
             </div>
-            <script>setTimeout(function() {{ window.location.href = "{final_url}"; }}, 100);</script>
+            <script>setTimeout(function() {{ window.location.href = "{safe_final_url}"; }}, 100);</script>
         </body>
     </html>
     """
@@ -145,7 +142,7 @@ async def webhook_strava_validation(
 
 @router.post("/webhooks/strava", status_code=200)
 async def webhook_strava_event(payload: StravaWebhookEvent):
-    print(f"Received Strava Event: {payload}")
+    logger.info(f"Received Strava Event: {payload}")
     if payload.object_type == "activity" and payload.aspect_type == "create":
         # We can still use the service for complex processing if it exists
         if hasattr(strava_service, "handle_webhook_event"):

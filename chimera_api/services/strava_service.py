@@ -1,7 +1,10 @@
 import os
+import logging
 import requests
 from datetime import datetime, timedelta, timezone
 from db_client import supabase_admin
+
+logger = logging.getLogger(__name__)
 
 STRAVA_AUTH_URL = "https://www.strava.com/oauth/token"
 STRAVA_API_URL = "https://www.strava.com/api/v3"
@@ -70,12 +73,12 @@ def _get_access_token(user_id: str):
 
 # 👇 UPDATED: Main Logic
 async def handle_webhook_event(object_id: int, owner_id: int):
-    print(f"🚴 Processing Strava Activity: {object_id} for Athlete: {owner_id}")
+    logger.info(f"Processing Strava Activity: {object_id} for Athlete: {owner_id}")
 
     try:
         # 1. Dynamically find the user
         user_id = _get_user_by_strava_id(owner_id)
-        print(f"✅ Found User ID: {user_id}")
+        logger.info(f"Found User ID: {user_id}")
 
         # 2. Get Token for THAT user
         token = _get_access_token(user_id)
@@ -121,12 +124,14 @@ async def handle_webhook_event(object_id: int, owner_id: int):
         await _auto_link_to_plan(user_id, result.data[0]["id"], data)
 
     except Exception as e:
-        print(f"❌ Strava Processing Error: {e}")
+        logger.error(f"Strava Processing Error: {e}")
 
 
 # 👇 UPDATED: Auto-Linker
 async def _auto_link_to_plan(user_id: str, completed_id, strava_data):
     local_iso = strava_data.get("start_date_local")
+    if not local_iso:
+        return
     target_date_str = local_iso.split("T")[0]
 
     # Use UTC Window for DB Query
@@ -157,7 +162,7 @@ async def _auto_link_to_plan(user_id: str, completed_id, strava_data):
             break
 
     if match:
-        print(f"🤝 MATCH! Linking to: {match['title']}")
+        logger.info(f"MATCH! Linking to: {match['title']}")
         supabase_admin.table("completed_activities").update(
             {"planned_workout_id": match["id"]}
         ).eq("id", completed_id).execute()
@@ -166,4 +171,4 @@ async def _auto_link_to_plan(user_id: str, completed_id, strava_data):
             "id", match["id"]
         ).execute()
     else:
-        print(f"🤷 No match found for {target_date_str}")
+        logger.info(f"No match found for {target_date_str}")

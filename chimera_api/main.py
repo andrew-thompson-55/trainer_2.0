@@ -1,4 +1,5 @@
 import os
+import logging
 import google.generativeai as genai
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Depends
@@ -10,6 +11,7 @@ from uuid import UUID
 from schemas import (
     ChatRequest,
     WorkoutCreate,
+    WorkoutUpdate,
     WorkoutResponse,
     DailyLogCreate,
     DailyLogResponse,
@@ -23,6 +25,13 @@ from dependencies import get_current_user
 from routers import auth, strava
 
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -43,7 +52,7 @@ def health_check():
 
 # --- AI CHAT (Kept in Main for now) ---
 @app.post("/v1/chat")
-async def chat_with_gemini(request: ChatRequest):
+async def chat_with_gemini(request: ChatRequest, user_id: str = Depends(get_current_user)):
     # ... (Your existing AI Chat logic - abbreviated for safety) ...
     # (Paste your existing /v1/chat function body here exactly as it was)
     try:
@@ -76,11 +85,13 @@ async def chat_with_gemini(request: ChatRequest):
 
         # Tool Handling Logic
         final_reply = ""
+        if not response.candidates:
+            raise HTTPException(status_code=500, detail="Empty response from AI")
         part = response.candidates[0].content.parts[0]
         if part.function_call:
             fname = part.function_call.name
             fargs = dict(part.function_call.args)
-            tool_result = await execute_tool_call(fname, fargs)
+            tool_result = await execute_tool_call(fname, fargs, user_id)
             function_response = {
                 "function_response": {
                     "name": fname,
@@ -96,14 +107,14 @@ async def chat_with_gemini(request: ChatRequest):
         if supabase_admin:
             try:
                 supabase_admin.table("chat_logs").insert(
-                    {"user_message": request.message, "ai_response": final_reply}
+                    {"user_id": user_id, "user_message": request.message, "ai_response": final_reply}
                 ).execute()
             except Exception as e:
-                print(f"⚠️ Chat log failed: {e}")
+                logger.warning(f"Chat log failed: {e}")
 
         return {"reply": final_reply}
     except Exception as e:
-        print(f"AI Error: {e}")
+        logger.error(f"AI Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -131,9 +142,9 @@ async def get_workout(workout_id: UUID, user_id: str = Depends(get_current_user)
 
 @app.patch("/v1/workouts/{workout_id}", tags=["Workouts"])
 async def update_workout(
-    workout_id: UUID, workout: dict, user_id: str = Depends(get_current_user)
+    workout_id: UUID, workout: WorkoutUpdate, user_id: str = Depends(get_current_user)
 ):
-    return await workout_service.update_workout(workout_id, workout, user_id)
+    return await workout_service.update_workout(workout_id, workout.model_dump(exclude_unset=True), user_id)
 
 
 @app.delete("/v1/workouts/{workout_id}", tags=["Workouts"])

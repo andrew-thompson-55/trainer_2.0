@@ -1,7 +1,10 @@
+import logging
 import google.generativeai as genai
 from datetime import datetime, timedelta
 from services import workout_service
 from schemas import WorkoutCreate
+
+logger = logging.getLogger(__name__)
 
 # --- TOOL DEFINITIONS ---
 tools_schema = [
@@ -76,7 +79,7 @@ tools_schema = [
 
 
 # --- HELPER: Find Workout by Date ---
-async def _find_workout_on_day(date_iso: str, activity_type: str = None):
+async def _find_workout_on_day(date_iso: str, user_id: str, activity_type: str = None):
     """
     Helper to search for workouts on a specific calendar day.
     """
@@ -89,7 +92,7 @@ async def _find_workout_on_day(date_iso: str, activity_type: str = None):
 
     # Call our service to get workouts in that range
     workouts = await workout_service.get_workouts(
-        start_date=start_range, end_date=end_range
+        user_id=user_id, start_date=start_range, end_date=end_range
     )
 
     if not workouts:
@@ -106,8 +109,8 @@ async def _find_workout_on_day(date_iso: str, activity_type: str = None):
 
 
 # --- EXECUTION LOGIC ---
-async def execute_tool_call(function_name, args):
-    print(f"🤖 Tool Execution: {function_name} | Args: {args}")
+async def execute_tool_call(function_name, args, user_id: str):
+    logger.info(f"Tool Execution: {function_name} | Args: {args}")
 
     # 1. CREATE
     if function_name == "create_workout":
@@ -123,13 +126,13 @@ async def execute_tool_call(function_name, args):
             end_time=end_dt,
             status="planned",
         )
-        result = await workout_service.create_workout(workout_data)
+        result = await workout_service.create_workout(workout_data, user_id)
         return f"Success. Created '{result['title']}' ID: {result['id']}"
 
     # 2. UPDATE
     elif function_name == "update_workout":
         # First, find the workout
-        target = await _find_workout_on_day(args["target_date_iso"])
+        target = await _find_workout_on_day(args["target_date_iso"], user_id)
         if not target:
             return "Error: No workout found on that date to update."
 
@@ -156,18 +159,18 @@ async def execute_tool_call(function_name, args):
         if not updates:
             return "No changes requested."
 
-        await workout_service.update_workout(target["id"], updates)
+        await workout_service.update_workout(target["id"], updates, user_id)
         return f"Success. Updated workout '{target['title']}'."
 
     # 3. DELETE
     elif function_name == "delete_workout":
         target = await _find_workout_on_day(
-            args["target_date_iso"], args.get("activity_type")
+            args["target_date_iso"], user_id, args.get("activity_type")
         )
         if not target:
             return "Error: No workout found on that date to delete."
 
-        await workout_service.delete_workout(target["id"])
+        await workout_service.delete_workout(target["id"], user_id)
         return f"Success. Deleted workout '{target['title']}'."
 
     return "Error: Unknown function."

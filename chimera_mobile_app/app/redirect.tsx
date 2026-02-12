@@ -1,9 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, ActivityIndicator, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-
-// !!! YOUR RENDER URL !!!
-const API_BASE = 'https://trainer-2-0.onrender.com/v1';
+import { authFetch } from '../services/authFetch';
 
 export default function RedirectScreen() {
   const router = useRouter();
@@ -22,9 +20,8 @@ export default function RedirectScreen() {
       if (code) {
         try {
           // Send code to backend
-          const response = await fetch(`${API_BASE}/integrations/strava/exchange`, {
+          const response = await authFetch('/integrations/strava/exchange', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code })
           });
 

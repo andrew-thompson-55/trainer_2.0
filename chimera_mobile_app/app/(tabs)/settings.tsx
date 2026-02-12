@@ -5,9 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography } from '../../theme';
-import { useAuth } from '../../context/AuthContext'; // 👈 Adjusted import path here too
-
-const API_BASE = 'https://trainer-2-0.onrender.com/v1';
+import { useAuth } from '../../context/AuthContext';
+import { authFetch } from '../../services/authFetch';
 
 export default function SettingsScreen() {
   const { signOut, user } = useAuth();
@@ -54,16 +53,12 @@ export default function SettingsScreen() {
   };
 
   const exchangeStravaCode = async (code: string) => {
-    if (!user?.token) return; 
+    if (!user?.token) return;
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/integrations/strava/exchange`, {
+      const res = await authFetch('/integrations/strava/exchange', {
         method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${user.token}`
-        },
         body: JSON.stringify({ code }),
       });
 
@@ -92,15 +87,8 @@ export default function SettingsScreen() {
     const returnUrl = Linking.createURL('redirect');
 
     try {
-      const response = await fetch(
-        `${API_BASE}/integrations/strava/auth-url?return_url=${encodeURIComponent(returnUrl)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${user.token}`, 
-            'Content-Type': 'application/json',
-          },
-        }
+      const response = await authFetch(
+        `/integrations/strava/auth-url?return_url=${encodeURIComponent(returnUrl)}`
       );
 
       const data = await response.json();

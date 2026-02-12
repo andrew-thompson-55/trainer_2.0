@@ -7,6 +7,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 security = HTTPBearer()
 JWT_SECRET = os.getenv("JWT_SECRET")
 
+# Validate JWT_SECRET at startup
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET environment variable is not set. Cannot start application.")
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),

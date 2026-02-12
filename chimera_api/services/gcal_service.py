@@ -1,10 +1,13 @@
 import os
 import json
 import base64
+import logging
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 from db_client import supabase_admin
+
+logger = logging.getLogger(__name__)
 
 # Scopes needed
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
@@ -15,7 +18,7 @@ def _get_calendar_service():
     # Load JSON from Env Var (Base64 Encoded for safety on Render)
     b64_creds = os.getenv("GOOGLE_CREDENTIALS_JSON")
     if not b64_creds:
-        print("⚠️ No Google Credentials found.")
+        logger.warning("No Google Credentials found.")
         return None
 
     try:
@@ -26,7 +29,7 @@ def _get_calendar_service():
         )
         return build("calendar", "v3", credentials=creds)
     except Exception as e:
-        print(f"❌ Google Auth Failed: {e}")
+        logger.error(f"Google Auth Failed: {e}")
         return None
 
 
@@ -67,7 +70,7 @@ def sync_workout_to_calendar(workout_data: dict, is_new=False):
     try:
         if is_new or not workout_data.get("google_event_id"):
             # CREATE
-            print(f"📅 Creating GCal Event: {workout_data['title']}")
+            logger.info(f"Creating GCal Event: {workout_data['title']}")
             event = (
                 service.events()
                 .insert(calendarId=calendar_id, body=event_body)
@@ -84,7 +87,7 @@ def sync_workout_to_calendar(workout_data: dict, is_new=False):
 
         else:
             # UPDATE
-            print(f"📅 Updating GCal Event: {workout_data['title']}")
+            logger.info(f"Updating GCal Event: {workout_data['title']}")
             service.events().update(
                 calendarId=calendar_id,
                 eventId=workout_data["google_event_id"],
@@ -92,16 +95,18 @@ def sync_workout_to_calendar(workout_data: dict, is_new=False):
             ).execute()
 
     except Exception as e:
-        print(f"❌ Calendar Sync Error: {e}")
+        logger.error(f"Calendar Sync Error: {e}")
 
 
 def delete_calendar_event(google_event_id: str):
     """Deletes event from GCal"""
     service = _get_calendar_service()
+    if not service:
+        return
     calendar_id = os.getenv("GOOGLE_CALENDAR_ID")
     try:
         service.events().delete(
             calendarId=calendar_id, eventId=google_event_id
         ).execute()
     except Exception as e:
-        print(f"❌ Delete Error: {e}")
+        logger.error(f"Delete Error: {e}")

@@ -1,6 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
-from schemas import WorkoutCreate, WorkoutResponse
+from schemas import WorkoutCreate
 from db_client import supabase_admin
 from services import gcal_service
 from fastapi import HTTPException
@@ -70,6 +70,7 @@ async def update_workout(workout_id: UUID, updates: dict, user_id: str) -> dict:
         supabase_admin.table("planned_workouts")
         .update(updates)
         .eq("id", str(workout_id))
+        .eq("user_id", user_id)
         .execute()
     )
 
@@ -88,6 +89,7 @@ async def delete_workout(workout_id: UUID, user_id: str):
         supabase_admin.table("planned_workouts")
         .select("google_event_id")
         .eq("id", str(workout_id))
+        .eq("user_id", user_id)
         .execute()
     )
 
@@ -98,7 +100,7 @@ async def delete_workout(workout_id: UUID, user_id: str):
     # Now delete from DB
     supabase_admin.table("planned_workouts").delete().eq(
         "id", str(workout_id)
-    ).execute()
+    ).eq("user_id", user_id).execute()
 
 
 async def get_linked_activity(workout_id: UUID, user_id: str) -> dict:

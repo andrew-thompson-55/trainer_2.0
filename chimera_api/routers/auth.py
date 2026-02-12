@@ -1,15 +1,16 @@
 import os
+import logging
 import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from db_client import supabase_admin
-from schemas import ProfileUpdate
+from schemas import ProfileUpdate, GoogleLoginRequest
+from dependencies import get_current_user
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1", tags=["Auth"])
-security = HTTPBearer()
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -17,10 +18,8 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 
 # --- LOGIN ---
 @router.post("/auth/google")
-def login_with_google(body: dict):
-    token = body.get("token")
-    if not token:
-        raise HTTPException(status_code=400, detail="Missing token")
+def login_with_google(body: GoogleLoginRequest):
+    token = body.token
 
     try:
         # 1. Verify Google Token
@@ -54,44 +53,27 @@ def login_with_google(body: dict):
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid Google Token")
     except Exception as e:
-        print(f"Auth Error: {e}")
+        logger.error(f"Auth Error: {e}")
         raise HTTPException(status_code=500, detail="Login failed")
 
 
 # --- VERIFY ---
 @router.get("/auth/verify")
-def verify_session(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        return {"status": "valid", "user_id": payload["sub"]}
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
+def verify_session(user_id: str = Depends(get_current_user)):
+    return {"status": "valid", "user_id": user_id}
 
 
 # --- USER MANAGEMENT ---
 @router.delete("/users/me")
-def delete_my_account(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        user_id = payload["sub"]
-        supabase_admin.table("users").delete().eq("id", user_id).execute()
-        return {"status": "deleted"}
-    except Exception:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def delete_my_account(user_id: str = Depends(get_current_user)):
+    supabase_admin.table("users").delete().eq("id", user_id).execute()
+    return {"status": "deleted"}
 
 
 @router.put("/users/profile")
 def update_profile(
-    data: ProfileUpdate, credentials: HTTPAuthorizationCredentials = Depends(security)
+    data: ProfileUpdate, user_id: str = Depends(get_current_user)
 ):
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        user_id = payload["sub"]
-        update_dict = data.model_dump(exclude_unset=True)
-        supabase_admin.table("users").update(update_dict).eq("id", user_id).execute()
-        return {"status": "updated"}
-    except Exception:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    update_dict = data.model_dump(exclude_unset=True)
+    supabase_admin.table("users").update(update_dict).eq("id", user_id).execute()
+    return {"status": "updated"}

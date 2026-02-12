@@ -9,6 +9,11 @@ class ChatRequest(BaseModel):
     message: str
 
 
+# --- Auth Models ---
+class GoogleLoginRequest(BaseModel):
+    token: str
+
+
 # --- Workout Models ---
 class WorkoutBase(BaseModel):
     title: str
@@ -23,13 +28,22 @@ class WorkoutCreate(WorkoutBase):
     pass
 
 
+class WorkoutUpdate(BaseModel):
+    """Partial update model for workouts - all fields optional"""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    activity_type: Optional[Literal["run", "bike", "swim", "strength", "other"]] = None
+    status: Optional[Literal["planned", "completed", "missed"]] = None
+
+
 class WorkoutResponse(WorkoutBase):
     id: UUID
     user_id: UUID
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # --- Daily Log Models ---

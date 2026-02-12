@@ -64,6 +64,9 @@ Chimera is an AI-powered endurance training coach. It ingests workout data from 
 
 
 ## 7. run the build to test via native app
+1. before running build if firebase key was rotated:
+    - python -c "import base64; print(base64.b64encode(open('chimera_mobile_app/google-services.json', 'rb').read()).decode())" > google-services-base64.txt
+    - eas secret:create --name GOOGLE_SERVICES_BASE64 --value "PASTE_THE_LONG_BASE64_STRING_HERE"
 1. eas build --profile development --platform android
 npx expo start --dev-client --tunnel
 
