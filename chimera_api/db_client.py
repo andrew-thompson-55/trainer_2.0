@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -10,15 +11,16 @@ logger = logging.getLogger(__name__)
 url: str = os.getenv("SUPABASE_URL")
 key: str = os.getenv("SUPABASE_SERVICE_KEY")
 
-# Safety check
+# CRITICAL: Fail fast if credentials are missing
 if not url or not key:
-    # We log a warning but don't crash immediately to allow build steps to run
-    logger.warning("Supabase credentials missing. Database features will fail.")
+    logger.critical("❌ FATAL: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in environment variables")
+    logger.critical("❌ Database features cannot function without these credentials")
+    sys.exit(1)
 
 # Initialize the Admin Client
-# We use 'try' so imports don't crash if variables are missing during local tests
 try:
     supabase_admin: Client = create_client(url, key)
+    logger.info("✅ Supabase client initialized successfully")
 except Exception as e:
-    supabase_admin = None
-    logger.error(f"Failed to initialize Supabase client: {e}")
+    logger.critical(f"❌ FATAL: Failed to initialize Supabase client: {e}")
+    sys.exit(1)

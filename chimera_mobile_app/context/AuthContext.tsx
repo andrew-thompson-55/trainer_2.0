@@ -94,7 +94,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
     } catch (e) {
         console.error(e);
-        alert("Backend connection failed.");
+        alert("Backend connection failed."); // check render logs. login pased on phone but is failing on backend. check if token is being sent correctly and if backend endpoint is correct.
     } finally {
         setIsLoading(false);
     }
