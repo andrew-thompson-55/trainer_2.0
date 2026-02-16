@@ -3,6 +3,7 @@ import logging
 import google.generativeai as genai
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from typing import List, Optional
 from uuid import UUID
@@ -28,12 +29,24 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+# 👇 CONFIGURE CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8081",
+        "http://localhost:3000",
+        "https://chimera-amber.vercel.app",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # 👇 REGISTER ROUTERS
 app.include_router(auth.router)
@@ -52,7 +65,9 @@ def health_check():
 
 # --- AI CHAT (Kept in Main for now) ---
 @app.post("/v1/chat")
-async def chat_with_gemini(request: ChatRequest, user_id: str = Depends(get_current_user)):
+async def chat_with_gemini(
+    request: ChatRequest, user_id: str = Depends(get_current_user)
+):
     # ... (Your existing AI Chat logic - abbreviated for safety) ...
     # (Paste your existing /v1/chat function body here exactly as it was)
     try:
@@ -107,7 +122,11 @@ async def chat_with_gemini(request: ChatRequest, user_id: str = Depends(get_curr
         if supabase_admin:
             try:
                 supabase_admin.table("chat_logs").insert(
-                    {"user_id": user_id, "user_message": request.message, "ai_response": final_reply}
+                    {
+                        "user_id": user_id,
+                        "user_message": request.message,
+                        "ai_response": final_reply,
+                    }
                 ).execute()
             except Exception as e:
                 logger.warning(f"Chat log failed: {e}")
@@ -144,7 +163,9 @@ async def get_workout(workout_id: UUID, user_id: str = Depends(get_current_user)
 async def update_workout(
     workout_id: UUID, workout: WorkoutUpdate, user_id: str = Depends(get_current_user)
 ):
-    return await workout_service.update_workout(workout_id, workout.model_dump(exclude_unset=True), user_id)
+    return await workout_service.update_workout(
+        workout_id, workout.model_dump(exclude_unset=True), user_id
+    )
 
 
 @app.delete("/v1/workouts/{workout_id}", tags=["Workouts"])
