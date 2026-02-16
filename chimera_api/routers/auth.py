@@ -37,11 +37,19 @@ def login_with_google(body: GoogleLoginRequest):
         user = response.data[0] if response.data else None
         is_new_user = False
 
+        # TEMP: Only allow existing users (for public testing/pen testing)
         if not user:
-            is_new_user = True
-            new_user_data = {"email": email, "name": name, "google_id": google_sub}
-            insert_res = supabase_admin.table("users").insert(new_user_data).execute()
-            user = insert_res.data[0]
+            logger.warning(f"Login attempt from non-existent user: {email}")
+            raise HTTPException(
+                status_code=403, detail="Access restricted to existing users"
+            )
+
+        # COMMENTED OUT: New user registration (restore after testing)
+        # if not user:
+        #     is_new_user = True
+        #     new_user_data = {"email": email, "name": name, "google_id": google_sub}
+        #     insert_res = supabase_admin.table("users").insert(new_user_data).execute()
+        #     user = insert_res.data[0]
 
         # 3. Create Session Token (JWT)
         expiry = datetime.now(timezone.utc) + timedelta(days=30)
@@ -52,6 +60,8 @@ def login_with_google(body: GoogleLoginRequest):
 
     except ValueError:
         raise HTTPException(status_code=401, detail="Invalid Google Token")
+    except HTTPException as he:
+        raise he  # Let the 403 (or any other HTTP error) pass through!
     except Exception as e:
         logger.error(f"Auth Error: {e}")
         raise HTTPException(status_code=500, detail="Login failed")
@@ -71,9 +81,7 @@ def delete_my_account(user_id: str = Depends(get_current_user)):
 
 
 @router.put("/users/profile")
-def update_profile(
-    data: ProfileUpdate, user_id: str = Depends(get_current_user)
-):
+def update_profile(data: ProfileUpdate, user_id: str = Depends(get_current_user)):
     update_dict = data.model_dump(exclude_unset=True)
     supabase_admin.table("users").update(update_dict).eq("id", user_id).execute()
     return {"status": "updated"}
