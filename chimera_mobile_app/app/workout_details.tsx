@@ -10,7 +10,7 @@ import { Colors, Layout, Typography } from '../theme';
 
 import { StatsGrid } from '../components/stats-grid';
 import { StatsGraphs } from '../components/stats-graphs';
-import { getActivityStats } from '../services/stats_presenter';
+import { getActivityStats } from '@domain/utils/stats';
 
 export default function WorkoutDetailsScreen() {
   const router = useRouter();

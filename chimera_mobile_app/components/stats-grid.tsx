@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { StatItem } from '../services/stats_presenter';
+import { StatItem } from '@domain/types/strava';
 
 interface Props {
   stats: StatItem[];

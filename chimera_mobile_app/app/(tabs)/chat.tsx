@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { StyleSheet, SafeAreaView, Platform, View, KeyboardAvoidingView } from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
-import { authFetch } from '../../services/authFetch';
+import { authFetch } from '@infra/fetch/auth-fetch';
 
 export default function ChatScreen() {
   const [messages, setMessages] = useState<any[]>([]);

@@ -5,8 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography } from '../../theme';
-import { useAuth } from '../../context/AuthContext';
-import { authFetch } from '../../services/authFetch';
+import { useAuth } from '@infra/auth/auth-provider';
+import { authFetch } from '@infra/fetch/auth-fetch';
 
 export default function SettingsScreen() {
   const { signOut, user } = useAuth();

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native'; 
 import { Redirect } from 'expo-router';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '@infra/auth/auth-provider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../theme';
 

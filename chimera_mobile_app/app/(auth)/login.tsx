@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Stack } from 'expo-router'; // 👈 Added useFocusEffect
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@infra/auth/auth-provider';
 import { Colors } from '../../theme';
 
 export default function LoginScreen() {

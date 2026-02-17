@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Network from 'expo-network';
-import { OfflineQueue } from './offline_queue';
-import { authFetch } from './authFetch';
-import { API_BASE } from './config';
+import { OfflineQueue } from '@infra/offline/queue';
+import { authFetch } from '@infra/fetch/auth-fetch';
+import { API_BASE } from '@infra/fetch/config';
 
 const CACHE_KEYS = {
   WORKOUTS: 'chimera_cache_workouts',

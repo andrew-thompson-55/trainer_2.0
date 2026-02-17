@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, ActivityIndicator, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { authFetch } from '../services/authFetch';
+import { authFetch } from '@infra/fetch/auth-fetch';
 
 export default function RedirectScreen() {
   const router = useRouter();

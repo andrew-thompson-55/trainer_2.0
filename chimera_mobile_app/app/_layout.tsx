@@ -2,7 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
-import { AuthProvider } from '../context/AuthContext';
+import { AuthProvider } from '@infra/auth/auth-provider';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 

@@ -1,12 +1,7 @@
-export interface StatItem {
-  id: string;
-  label: string;
-  value: string;
-  unit?: string; // Optional (e.g., "bpm")
-}
+import type { StatItem, StravaActivity } from '../types/strava';
 
 // Helper: Format Seconds to "1h 30m" or "45m 12s"
-const formatDuration = (seconds: number) => {
+export const formatDuration = (seconds: number) => {
   if (!seconds) return '--';
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -17,7 +12,7 @@ const formatDuration = (seconds: number) => {
 };
 
 // Helper: Meters to Miles
-const formatDistance = (meters: number) => {
+export const formatDistance = (meters: number) => {
   if (!meters) return '--';
   const miles = meters * 0.000621371;
   return `${miles.toFixed(2)} mi`;
@@ -25,7 +20,7 @@ const formatDistance = (meters: number) => {
 
 // 🧠 THE MAIN FUNCTION
 // You pass in the raw Strava data, this returns exactly what should be displayed.
-export const getActivityStats = (activity: any): StatItem[] => {
+export const getActivityStats = (activity: StravaActivity): StatItem[] => {
   if (!activity) return [];
 
   const stats: StatItem[] = [
