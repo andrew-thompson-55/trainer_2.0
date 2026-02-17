@@ -16,7 +16,9 @@ export const api = {
 
   // --- 1. GET WORKOUTS (Read Data) ---
   async getWorkouts() {
+    console.log('[api.getWorkouts] Starting fetch...');
     const { isConnected } = await networkAdapter.getNetworkState();
+    console.log('[api.getWorkouts] Network connected:', isConnected);
 
     // A. If Online: Fetch & Cache
     if (isConnected) {
@@ -24,9 +26,14 @@ export const api = {
         console.log("🌍 Online: Fetching fresh data...");
         const data = await workoutsApi.getWorkouts(authFetch);
         console.log("📦 Received workouts data:", data);
+        console.log("📦 Data is array:", Array.isArray(data));
+        console.log("📦 Data length:", data?.length);
         if (Array.isArray(data)) {
+          console.log('[api.getWorkouts] Caching data...');
           await storageAdapter.setItem(CACHE_KEYS.WORKOUTS, JSON.stringify(data));
           return data;
+        } else {
+          console.log('[api.getWorkouts] Data is not an array!', typeof data);
         }
       } catch (error) {
         console.log("⚠️ API Error, falling back to cache:", error);
