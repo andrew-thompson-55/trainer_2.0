@@ -1,19 +1,19 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { StyleSheet, View, Text, SectionList, SafeAreaView, TouchableOpacity, RefreshControl, ToastAndroid, Platform, Alert } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { StyleSheet, View, Text, SectionList, SafeAreaView, TouchableOpacity, RefreshControl } from 'react-native';
 import { format, parseISO, isSameDay } from 'date-fns';
-import { useRouter, useFocusEffect } from 'expo-router'; 
-import { Ionicons } from '@expo/vector-icons'; 
-import { api } from '../../services/api';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Layout, Typography } from '../../theme';
+import { usePlan } from '@features/plan';
 
 export default function ItineraryScreen() {
-  const router = useRouter(); 
+  const router = useRouter();
   const sectionListRef = useRef<SectionList>(null);
-  
-  const [sections, setSections] = useState<any[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
 
+  const { sections, refreshing, onRefresh, toggleStatus } = usePlan();
+
+  // Auto-scroll to today's date
   useEffect(() => {
     if (sections.length === 0) return;
 
@@ -23,15 +23,15 @@ export default function ItineraryScreen() {
             const todayStr = format(new Date(), 'yyyy-MM-dd');
             if (!targetDate) targetDate = todayStr;
 
-            let index = sections.findIndex((s: any) => s.title === targetDate);
-            if (index === -1) index = sections.findIndex((s: any) => s.title >= targetDate!);
+            let index = sections.findIndex((s) => s.title === targetDate);
+            if (index === -1) index = sections.findIndex((s) => s.title >= targetDate!);
 
             if (index !== -1 && sectionListRef.current) {
                 setTimeout(() => {
                     sectionListRef.current?.scrollToLocation({
                         sectionIndex: index,
                         itemIndex: 0,
-                        viewOffset: 80, 
+                        viewOffset: 80,
                         animated: true
                     });
                 }, 300);
@@ -40,61 +40,6 @@ export default function ItineraryScreen() {
     };
     scroll();
   }, [sections]);
-
-  const processAndSetSections = (data: any[]) => {
-      const grouped: any = {};
-      const todayKey = format(new Date(), 'yyyy-MM-dd'); // 👈 Get Today's String
-
-      data.forEach((workout: any) => {
-        if (!workout.start_time) return;
-        const localDate = parseISO(workout.start_time);
-        const dateKey = format(localDate, 'yyyy-MM-dd'); 
-        
-        if (!grouped[dateKey]) grouped[dateKey] = [];
-        grouped[dateKey].push(workout);
-      });
-
-      // ⚡️ FORCE TODAY TO EXIST (So the line always renders)
-      if (!grouped[todayKey]) {
-          grouped[todayKey] = [];
-      }
-
-      const sectionsArray = Object.keys(grouped).sort().map(date => ({
-        title: date,
-        data: grouped[date]
-      }));
-
-      setSections(sectionsArray);
-  }
-
-  const loadData = async (isRefresh = false) => {
-    const cachedData = await api.getCachedWorkouts();
-    if (cachedData && cachedData.length > 0 && !isRefresh) processAndSetSections(cachedData);
-
-    try {
-      const netData = await api.getWorkouts();
-      if (netData && Array.isArray(netData)) processAndSetSections(netData);
-    } catch (e) {}
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await api.processOfflineQueue();
-    try { await api.syncGCal(); } catch (e) {}
-    await loadData(true); 
-    setRefreshing(false);
-  };
-
-  useFocusEffect(useCallback(() => { loadData(); }, []));
-
-  const toggleStatus = async (workout: any) => {
-    if (!workout || !workout.id) return;
-    const newStatus = workout.status === 'completed' ? 'planned' : 'completed';
-    try {
-        await api.updateWorkout(workout.id, { status: newStatus });
-        loadData(); 
-    } catch (error) { Alert.alert("Error", "Failed to update status."); }
-  };
 
   // --- HEADER RENDERER ---
   const renderSectionHeader = ({ section: { title, data } }: any) => {
