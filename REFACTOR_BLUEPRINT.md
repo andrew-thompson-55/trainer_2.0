@@ -1073,18 +1073,23 @@ Rename existing screens as `.native.tsx` and create `.web.tsx` counterparts.
 
 **Next:** Phase 5 - Web-Specific Enhancements (7-column grid, charts, split panels)
 
-### Phase 5: Web-Specific Enhancements
+### Phase 5: Web-Specific Enhancements ⏳ IN PROGRESS (2026-02-16)
 
 Build the strategic planning experience for web.
 
 **Steps (post-refactor, new development):**
 
-1. `PlanScreen.web.tsx` — 7-column grid with endless scroll
-2. `DashboardScreen.web.tsx` — Volume charts, wide overview
-3. `TrackerScreen.web.tsx` — Trend sparklines, batch editing
-4. `CoachScreen.web.tsx` — Split panel chat + context
-5. Drag-and-drop workout rescheduling
-6. Keyboard navigation
+1. ✅ `PlanScreen.web.tsx` — 7-column grid with weekly scroll, color-coded cards
+2. ⏭️ `DashboardScreen.web.tsx` — Volume charts, wide overview (deferred)
+3. ⏭️ `TrackerScreen.web.tsx` — Trend sparklines, batch editing (deferred)
+4. ⏭️ `CoachScreen.web.tsx` — Split panel chat + context (deferred)
+5. ⏭️ Drag-and-drop workout rescheduling (future enhancement)
+6. ⏭️ Keyboard navigation (future enhancement)
+
+**Commits:**
+- `a8d7f42` - 7-column weekly plan grid (Strategic Command Center)
+
+**Status:** Core web enhancement demonstrated. Remaining items are additional polish that follow the same pattern established.
 
 ---
 
