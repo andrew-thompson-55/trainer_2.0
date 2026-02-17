@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { 
-  StyleSheet, View, Text, TextInput, ScrollView, 
-  TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ActivityIndicator 
+import React from 'react';
+import {
+  StyleSheet, View, Text, TextInput, ScrollView,
+  TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, Layout, Typography } from '../theme';
-
-const ACTIVITY_TYPES = ['run', 'bike', 'swim', 'strength', 'other'];
+import { useWorkoutForm, ACTIVITY_TYPES } from '@features/workout';
+import type { WorkoutCreate } from '@domain/types';
 
 interface WorkoutFormProps {
   initialValues?: {
@@ -16,72 +16,26 @@ interface WorkoutFormProps {
     duration: string;
     description: string;
   };
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: WorkoutCreate) => Promise<void>;
   submitLabel: string;
   headerTitle: string;
   onCancel: () => void;
 }
 
 export const WorkoutForm = ({ initialValues, onSubmit, submitLabel, headerTitle, onCancel }: WorkoutFormProps) => {
-  // State initialized with props (or defaults)
-  const [title, setTitle] = useState(initialValues?.title || '');
-  const [type, setType] = useState(initialValues?.type || 'run');
-  const [date, setDate] = useState(initialValues?.date || new Date());
-  const [duration, setDuration] = useState(initialValues?.duration || '60');
-  const [desc, setDesc] = useState(initialValues?.description || '');
-  
-  const [saving, setSaving] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!title.trim()) {
-        Alert.alert("Missing Info", "Please enter a workout title.");
-        return;
-    }
-
-    setSaving(true);
-
-    // Calculate Times
-    const startTime = new Date(date);
-    const endTime = new Date(startTime.getTime() + parseInt(duration || '0') * 60000);
-
-    const payload = {
-        title,
-        description: desc,
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-        activity_type: type,
-        status: 'planned' // This might be overridden by the API for edits, which is fine
-    };
-    
-    try {
-      await onSubmit(payload);
-      // We don't turn off saving here because the parent usually navigates away
-    } catch (e) {
-      Alert.alert("Error", "Could not save.");
-      setSaving(false);
-    }
-  };
-
-  // Date Helpers
-  const onDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-        const newDate = new Date(date);
-        newDate.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-        setDate(newDate);
-    }
-  };
-
-  const onTimeChange = (event: any, selectedDate?: Date) => {
-    setShowTimePicker(false);
-    if (selectedDate) {
-        const newDate = new Date(date);
-        newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
-        setDate(newDate);
-    }
-  };
+  const {
+    title, setTitle,
+    type, setType,
+    date,
+    duration, setDuration,
+    description, setDescription,
+    saving,
+    showDatePicker, setShowDatePicker,
+    showTimePicker, setShowTimePicker,
+    handleSubmit,
+    onDateChange,
+    onTimeChange,
+  } = useWorkoutForm({ initialValues, onSubmit });
 
   return (
     <KeyboardAvoidingView 
@@ -169,8 +123,8 @@ export const WorkoutForm = ({ initialValues, onSubmit, submitLabel, headerTitle,
               <Text style={styles.label}>NOTES</Text>
               <TextInput 
                   style={styles.textArea} 
-                  value={desc} 
-                  onChangeText={setDesc}
+                  value={description}
+                  onChangeText={setDescription}
                   placeholder="Add details..."
                   placeholderTextColor={Colors.iconInactive}
                   multiline={true} 
