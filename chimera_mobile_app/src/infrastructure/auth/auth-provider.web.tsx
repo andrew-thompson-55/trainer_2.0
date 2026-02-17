@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
-import { API_BASE } from '../services/config';
+import { API_BASE } from '../fetch/config';
 
 // 🛑 REPLACE WITH YOUR WEB CLIENT ID
 const WEB_CLIENT_ID = '247141696720-6upuejdua6clh49utvobf6a007pthgtd.apps.googleusercontent.com';

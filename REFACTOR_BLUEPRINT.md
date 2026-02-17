@@ -67,6 +67,22 @@ Each feature owns its domain logic (types, hooks, API calls) in platform-agnosti
 
 ## 2. Current State Analysis
 
+### Type Inventory (Scanned 2026-02-16)
+
+**Current frontend type definitions:**
+- `StatItem` - services/stats_presenter.ts (presentation layer)
+- `QueueItem` - services/offline_queue.ts (infrastructure)
+- `User`, `AuthContextType` - context/AuthContext.*.tsx (duplicated across .web/.native)
+- `WorkoutFormProps` - components/WorkoutForm.tsx (component-specific)
+
+**Types used as `any` throughout:**
+- Workout data (activity_type, status, timestamps) - used in api.ts, screens, everywhere
+- DailyLog data (sleep metrics, HRV, motivation) - used in tracker, api.ts
+- Strava activities - used in workout_details, calendar
+- Chat messages - used in chat screen
+
+**Canonical source:** Backend `chimera_api/schemas.py` Pydantic models define the data contracts. Frontend types will mirror these exactly.
+
 ### What Exists (chimera_mobile_app/)
 
 ```

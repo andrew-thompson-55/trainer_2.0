@@ -5,7 +5,7 @@ import { useRouter, useSegments } from 'expo-router';
 
 // 👇 NATIVE LIBRARY (No more expo-auth-session)
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { API_BASE } from '../services/config';
+import { API_BASE } from '../fetch/config';
 
 // 🛑 REPLACE WITH YOUR WEB CLIENT ID
 // Even though this is a native app, we use the WEB ID for configuration to get the ID Token.
