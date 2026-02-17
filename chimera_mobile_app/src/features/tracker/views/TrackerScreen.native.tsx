@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, SafeAreaView, Platform, ActivityIndicator } from 'react-native';
 import { format, addDays, subDays } from 'date-fns';
 import Slider from '@react-native-community/slider';
-import { api } from '../../services/api';
-import { Colors, Layout, Typography } from '../../theme';
+import { api } from '../../../../services/api';
+import { Colors, Layout, Typography } from '../../../../theme';
 
 export default function TrackerScreen() {
   const [date, setDate] = useState(new Date());

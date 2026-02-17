@@ -4,7 +4,7 @@ import {
   TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Colors, Layout, Typography } from '../theme';
+import { Colors, Layout, Typography } from '../../../../theme';
 import { useWorkoutForm, ACTIVITY_TYPES } from '@features/workout';
 import type { WorkoutCreate } from '@domain/types';
 

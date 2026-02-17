@@ -4,7 +4,7 @@ import { format, parseISO, isSameDay } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, Layout, Typography } from '../../theme';
+import { Colors, Layout, Typography } from '../../../../theme';
 import { usePlan } from '@features/plan';
 
 export default function ItineraryScreen() {

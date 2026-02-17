@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, Text, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-import { api } from '../../services/api';
-import { useFocusEffect, useRouter } from 'expo-router'; 
+import { api } from '../../../../services/api';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
-import { Colors, Layout, Typography } from '../../theme';
+import { Colors, Layout, Typography } from '../../../../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CalendarScreen() {

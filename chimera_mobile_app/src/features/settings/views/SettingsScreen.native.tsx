@@ -4,7 +4,7 @@ import { StyleSheet, View, Text, TouchableOpacity, Alert, SafeAreaView, Switch, 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography } from '../../theme';
+import { Colors, Typography } from '../../../../theme';
 import { useAuth } from '@infra/auth/auth-provider';
 import { authFetch } from '@infra/fetch/auth-fetch';
 
