@@ -2,7 +2,7 @@ import React from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { api } from '../services/api';
-import { WorkoutForm } from '../components/WorkoutForm';
+import { WorkoutForm } from '@features/workout';
 import { Colors } from '../theme';
 
 export default function AddWorkoutScreen() {

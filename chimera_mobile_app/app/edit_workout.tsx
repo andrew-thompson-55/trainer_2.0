@@ -3,7 +3,7 @@ import { ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { api } from '../services/api';
-import { WorkoutForm } from '../components/WorkoutForm';
+import { WorkoutForm } from '@features/workout';
 import { Colors } from '../theme';
 import { parseISO, differenceInMinutes } from 'date-fns';
 
