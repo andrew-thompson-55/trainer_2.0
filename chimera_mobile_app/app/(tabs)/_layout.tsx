@@ -36,9 +36,9 @@ export default function TabLayout() {
         }}
       />
 
-      {/* 2. PLAN (The Old Itinerary) */}
+      {/* 2. PLAN (Training Plan) */}
       <Tabs.Screen
-        name="itinerary"
+        name="plan"
         options={{
           title: 'Plan',
           tabBarIcon: ({ color, focused }) => (
