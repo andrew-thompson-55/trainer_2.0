@@ -15,3 +15,6 @@ export const storageAdapter: StorageAdapter = {
     localStorage.removeItem(key);
   },
 };
+
+// Re-export CACHE_KEYS from base module
+export { CACHE_KEYS } from './storage';

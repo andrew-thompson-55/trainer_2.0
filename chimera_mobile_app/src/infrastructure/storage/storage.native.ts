@@ -16,3 +16,6 @@ export const storageAdapter: StorageAdapter = {
     await AsyncStorage.removeItem(key);
   },
 };
+
+// Re-export CACHE_KEYS from base module
+export { CACHE_KEYS } from './storage';
