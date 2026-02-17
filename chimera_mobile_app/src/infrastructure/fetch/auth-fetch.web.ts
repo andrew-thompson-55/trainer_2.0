@@ -8,17 +8,31 @@ export async function authFetch(
   // Use localStorage for web instead of SecureStore
   const token = localStorage.getItem('chimera_token');
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  return fetch(`${API_BASE}${endpoint}`, {
+  console.log(`[WEB authFetch] ${options.method || 'GET'} ${API_BASE}${endpoint}`);
+  const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
   });
+
+  console.log(`[WEB authFetch] Response status: ${response.status}`);
+
+  // Clone the response so we can log it without consuming the body
+  const clonedResponse = response.clone();
+  try {
+    const data = await clonedResponse.json();
+    console.log(`[WEB authFetch] Response data:`, data);
+  } catch (e) {
+    console.log(`[WEB authFetch] Could not parse JSON response`);
+  }
+
+  return response;
 }
