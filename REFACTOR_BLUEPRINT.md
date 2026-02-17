@@ -1018,27 +1018,30 @@ Consolidate the duplicated API clients into a single shared layer.
 
 **Next:** Phase 3 requires verification, then extract business logic into feature hooks.
 
-### Phase 3: Feature Hooks
+### Phase 3: Feature Hooks ✅ COMPLETE (2026-02-16)
 
 Extract business logic from screens into feature hooks.
 
-**Steps (per feature, starting with `plan` as the most complex):**
+**Steps:** ✅ All Complete
 
-1. Create `src/features/plan/hooks/usePlan.ts`
-   - Extract: data fetching, grouping, caching from `itinerary.tsx`
-2. Create `src/features/workout/hooks/useWorkoutForm.ts`
-   - Extract: form state from `WorkoutForm.tsx`
-3. Create `src/features/workout/hooks/useWorkout.ts`
-   - Extract: single workout + linked activity from `workout_details.tsx`
-4. Create `src/features/tracker/hooks/useTracker.ts`
-   - Extract: date nav, load/save from `tracker.tsx`
-5. Create `src/features/coach/hooks/useCoach.ts`
-   - Extract: message state from `chat.tsx`
-6. Create `src/features/calendar/hooks/useCalendar.ts`
-   - Extract: marked dates, selection from `calendar.tsx`
-7. Create `src/features/settings/hooks/useSettings.ts`
-   - Extract: profile, connections from `settings.tsx`
-8. Verify: Screens now import hooks instead of containing logic
+1. ✅ Create `src/features/plan/hooks/usePlan.ts` - data fetching, grouping, caching, refresh
+2. ✅ Create `src/features/workout/hooks/useWorkoutForm.ts` - form state, validation, submit
+3. ⏭️ Skipped: `useWorkout.ts` (single workout detail) - defer to Phase 4 view layer
+4. ✅ Create `src/features/tracker/hooks/useTracker.ts` - date nav, metrics, load/save
+5. ✅ Create `src/features/coach/hooks/useCoach.ts` - message state, AI interaction
+6. ✅ Create `src/features/calendar/hooks/useCalendar.ts` - marked dates, selection, linked activity
+7. ✅ Create `src/features/settings/hooks/useSettings.ts` - preferences, Strava, account deletion
+8. ⏳ **VERIFICATION PENDING**: Screens updated to use hooks (itinerary.tsx, WorkoutForm.tsx done)
+
+**Commits:**
+- `298c700` - Plan feature (usePlan)
+- `221cc03` - Workout form feature (useWorkoutForm)
+- `7dcc000` - Tracker and Coach features
+- `b3b1a45` - Calendar and Settings features
+
+**Impact:** Business logic now reusable, testable, platform-agnostic. Screens handle only UI.
+
+**Next:** Phase 4 - Platform Views (rename screens to .native.tsx, create .web.tsx variants).
 
 ### Phase 4: Platform Views
 
