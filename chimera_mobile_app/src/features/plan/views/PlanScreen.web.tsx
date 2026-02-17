@@ -14,9 +14,6 @@ export default function PlanScreen() {
   const router = useRouter();
   const { sections, refreshing, onRefresh, toggleStatus } = usePlan();
 
-  console.log('[PlanScreen.web] sections:', sections);
-  console.log('[PlanScreen.web] sections length:', sections?.length);
-
   // Group workouts by week for 7-column layout
   const weeks = useMemo(() => {
     const weekMap = new Map<string, Map<string, Workout[]>>();
@@ -36,12 +33,9 @@ export default function PlanScreen() {
     });
 
     // Convert to array and sort by week
-    const result = Array.from(weekMap.entries())
+    return Array.from(weekMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([weekKey, days]) => ({ weekKey, days }));
-
-    console.log('[PlanScreen.web] weeks computed:', result);
-    return result;
   }, [sections]);
 
   const getActivityColor = (type: string, status: string) => {

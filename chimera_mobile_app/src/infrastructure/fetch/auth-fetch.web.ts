@@ -17,22 +17,8 @@ export async function authFetch(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  console.log(`[WEB authFetch] ${options.method || 'GET'} ${API_BASE}${endpoint}`);
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  return fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
   });
-
-  console.log(`[WEB authFetch] Response status: ${response.status}`);
-
-  // Clone the response so we can log it without consuming the body
-  const clonedResponse = response.clone();
-  try {
-    const data = await clonedResponse.json();
-    console.log(`[WEB authFetch] Response data:`, data);
-  } catch (e) {
-    console.log(`[WEB authFetch] Could not parse JSON response`);
-  }
-
-  return response;
 }

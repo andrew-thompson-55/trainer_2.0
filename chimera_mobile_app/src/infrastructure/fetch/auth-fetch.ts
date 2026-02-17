@@ -1,6 +1,5 @@
-// Auth fetch - platform-agnostic interface
-// The actual implementation is provided by .web.ts or .native.ts files
+// Auth fetch - Platform-agnostic interface
+// The bundler will automatically use the correct platform-specific implementation
 
-// This base file re-exports from the native implementation as a fallback
-// Metro/Webpack will automatically use the correct platform-specific file
+// Re-export from native as fallback (bundler will use .web.ts or .native.ts as needed)
 export { authFetch } from './auth-fetch.native';

@@ -26,10 +26,6 @@ export function usePlan(): UsePlanReturn {
   const [refreshing, setRefreshing] = useState(false);
 
   const processAndSetSections = (data: Workout[]) => {
-    console.log('[usePlan] processAndSetSections called with data:', data);
-    console.log('[usePlan] data length:', data?.length);
-    console.log('[usePlan] data is array:', Array.isArray(data));
-
     const grouped: Record<string, Workout[]> = {};
     const todayKey = format(new Date(), 'yyyy-MM-dd');
 
@@ -52,16 +48,12 @@ export function usePlan(): UsePlanReturn {
       data: grouped[date]
     }));
 
-    console.log('[usePlan] sectionsArray:', sectionsArray);
     setSections(sectionsArray);
   };
 
   const loadData = useCallback(async (isRefresh = false) => {
-    console.log('[usePlan] loadData called, isRefresh:', isRefresh);
-
     // Load from cache first (if not refreshing)
     const cachedData = await api.getCachedWorkouts();
-    console.log('[usePlan] cachedData:', cachedData);
     if (cachedData && cachedData.length > 0 && !isRefresh) {
       processAndSetSections(cachedData);
     }
@@ -69,14 +61,11 @@ export function usePlan(): UsePlanReturn {
     // Then fetch fresh data
     try {
       const netData = await api.getWorkouts();
-      console.log('[usePlan] netData:', netData);
       if (netData && Array.isArray(netData)) {
         processAndSetSections(netData);
-      } else {
-        console.log('[usePlan] netData is not an array or is null');
       }
     } catch (e) {
-      console.log('[usePlan] Failed to fetch workouts:', e);
+      console.log('Failed to fetch workouts:', e);
     }
   }, []);
 
