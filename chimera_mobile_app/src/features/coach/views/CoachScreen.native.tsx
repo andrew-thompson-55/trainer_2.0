@@ -1,92 +1,75 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, SafeAreaView, Platform, View, KeyboardAvoidingView } from 'react-native';
-import { GiftedChat } from 'react-native-gifted-chat';
+import React from 'react';
+import { StyleSheet, SafeAreaView, Platform, View, ActivityIndicator, Text } from 'react-native';
+import { Channel, MessageList, MessageInput } from 'stream-chat-expo';
+import { useStreamChatContext } from '@infra/stream/stream-provider';
+import { useStreamChat } from '@infra/stream/use-stream-chat';
 import { authFetch } from '@infra/fetch/auth-fetch';
 
 export default function ChatScreen() {
-  const [messages, setMessages] = useState<any[]>([]);
+  const { isReady, error: streamError } = useStreamChatContext();
+  const { channel, isConnecting, connectionError } = useStreamChat();
 
-  useEffect(() => {
-    setMessages([
-      {
-        _id: 1,
-        text: 'System Online. Ready to train.',
-        createdAt: new Date(),
-        user: {
-          _id: 2,
-          name: 'Chimera',
-          avatar: 'https://placeimg.com/140/140/any',
-        },
-      },
-    ]);
-  }, []);
+  // Loading state
+  if (!isReady || isConnecting) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+          <Text style={styles.loadingText}>Connecting to Chimera...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  const onSend = useCallback((newMessages = []) => {
-    setMessages(previousMessages => GiftedChat.append(previousMessages, newMessages));
-    const userMessage = newMessages[0].text;
+  // Error state
+  if (streamError || connectionError) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>Connection Error</Text>
+          <Text style={styles.errorDetail}>{streamError || connectionError}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-    // Call the Cloud API
-    authFetch('/chat', {
+  // No channel yet
+  if (!channel) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centered}>
+          <Text style={styles.loadingText}>Setting up channel...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Intercept send: route message through backend for Gemini processing
+  const doSendMessageRequest = async (
+    channelInstance: typeof channel,
+    message: Parameters<typeof channelInstance.sendMessage>[0],
+  ) => {
+    // Send user message to Stream channel
+    const response = await channelInstance.sendMessage(message);
+
+    // Also send to backend for Gemini AI processing
+    const text = message.text;
+    if (text) {
+      authFetch('/chat', {
         method: 'POST',
-        body: JSON.stringify({ message: userMessage }),
-    })
-    .then(response => response.json())
-    .then(data => {
-        let responseText = "Communication Error.";
-        if (data.reply) {
-            responseText = data.reply;
-        } else if (data.detail) {
-            responseText = "System Error: " + data.detail;
-        }
+        body: JSON.stringify({ message: text }),
+      }).catch((e) => console.error('Chat API error:', e));
+    }
 
-        const aiMessage = {
-            _id: Math.random().toString(),
-            text: responseText,
-            createdAt: new Date(),
-            user: {
-                _id: 2,
-                name: 'Chimera',
-                avatar: 'https://placeimg.com/140/140/any',
-            },
-        };
-        setMessages(previousMessages => GiftedChat.append(previousMessages, aiMessage));
-    })
-    .catch(error => {
-        console.error(error);
-        const errorMessage = {
-            _id: Math.random().toString(),
-            text: "Error connecting to cloud node.",
-            createdAt: new Date(),
-            user: { _id: 2, name: 'System' },
-        };
-        setMessages(previousMessages => GiftedChat.append(previousMessages, errorMessage));
-    });
-  }, []);
+    return response;
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* The Fix: Manually handle the keyboard offset. 
-         We offset by ~90px on Android to account for the Tab Bar height.
-      */}
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 90}
-      >
-        <GiftedChat
-          messages={messages}
-          onSend={messages => onSend(messages)}
-          user={{
-            _id: 1, // Your User ID
-          }}
-          placeholder="Ask about your training..."
-          showUserAvatar
-          alwaysShowSend
-          // On Android, we disable GiftedChat's built-in handling 
-          // because we are doing it manually with the wrapper above.
-          keyboardShouldPersistTaps="never"
-        />
-      </KeyboardAvoidingView>
+      <Channel channel={channel} doSendMessageRequest={doSendMessageRequest}>
+        <MessageList />
+        <MessageInput />
+      </Channel>
     </SafeAreaView>
   );
 }
@@ -94,8 +77,29 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    // On Android, SafeAreaView sometimes needs a little top padding 
-    paddingTop: Platform.OS === 'android' ? 30 : 0, 
+    backgroundColor: '#0D0D0F',
+    paddingTop: Platform.OS === 'android' ? 30 : 0,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#9AA0AB',
+    marginTop: 12,
+    fontSize: 14,
+  },
+  errorText: {
+    color: '#E8EAED',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  errorDetail: {
+    color: '#9AA0AB',
+    marginTop: 8,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
 });

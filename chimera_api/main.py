@@ -1,6 +1,8 @@
 import os
+import asyncio
 import logging
 import google.generativeai as genai
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +20,7 @@ from schemas import (
     DailyLogResponse,
 )
 from services import workout_service, daily_log_service
+from services import stream_service
 from db_client import supabase_admin
 from ai_tools import tools_schema, execute_tool_call
 from dependencies import get_current_user
@@ -33,7 +36,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app):
+    # Startup: bootstrap the Stream bot user
+    try:
+        await asyncio.to_thread(stream_service.bootstrap_bot_user)
+        logger.info("Stream bot user ready")
+    except Exception as e:
+        logger.warning(f"Stream bootstrap failed (non-fatal): {e}")
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 # 👇 CONFIGURE CORS
 app.add_middleware(
@@ -117,6 +132,15 @@ async def chat_with_gemini(
             final_reply = final_response.text
         else:
             final_reply = response.text
+
+        # Push AI reply to Stream channel
+        try:
+            channel = await asyncio.to_thread(stream_service.get_or_create_coach_channel, user_id)
+            await asyncio.to_thread(stream_service.send_typing_start, channel)
+            await asyncio.to_thread(stream_service.push_ai_message, channel, final_reply)
+            await asyncio.to_thread(stream_service.send_typing_stop, channel)
+        except Exception as e:
+            logger.warning(f"Stream push failed: {e}")
 
         # Log to DB
         if supabase_admin:

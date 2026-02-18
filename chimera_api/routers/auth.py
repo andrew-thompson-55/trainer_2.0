@@ -6,8 +6,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from db_client import supabase_admin
-from schemas import ProfileUpdate, GoogleLoginRequest
+from schemas import ProfileUpdate, GoogleLoginRequest, StreamTokenResponse
 from dependencies import get_current_user
+from services import stream_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1", tags=["Auth"])
@@ -55,6 +56,12 @@ def login_with_google(body: GoogleLoginRequest):
         expiry = datetime.now(timezone.utc) + timedelta(days=30)
         payload = {"sub": str(user["id"]), "email": user["email"], "exp": expiry}
         session_token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+        # Sync user to GetStream (non-blocking — Stream outage should never block login)
+        try:
+            stream_service.upsert_stream_user(str(user["id"]), user.get("name", "Athlete"), user.get("email", ""))
+        except Exception as e:
+            logger.warning(f"Stream user sync failed: {e}")
 
         return {"token": session_token, "user": user, "isNewUser": is_new_user}
 
@@ -116,6 +123,12 @@ def login_with_google_web(body: dict):
         payload = {"sub": str(user["id"]), "email": user["email"], "exp": expiry}
         session_token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
+        # Sync user to GetStream (non-blocking)
+        try:
+            stream_service.upsert_stream_user(str(user["id"]), user.get("name", "Athlete"), user.get("email", ""))
+        except Exception as e:
+            logger.warning(f"Stream user sync failed (web): {e}")
+
         logger.info(f"✅ Web login successful for {email}")
         return {"token": session_token, "user": user, "isNewUser": is_new_user}
 
@@ -140,6 +153,17 @@ def verify_session(user_id: str = Depends(get_current_user)):
 def delete_my_account(user_id: str = Depends(get_current_user)):
     supabase_admin.table("users").delete().eq("id", user_id).execute()
     return {"status": "deleted"}
+
+
+# --- STREAM TOKEN ---
+@router.get("/auth/stream-token", response_model=StreamTokenResponse)
+def get_stream_token(user_id: str = Depends(get_current_user)):
+    token = stream_service.generate_user_token(user_id)
+    return StreamTokenResponse(
+        stream_token=token,
+        stream_api_key=stream_service.STREAM_API_KEY,
+        user_id=user_id,
+    )
 
 
 @router.put("/users/profile")
