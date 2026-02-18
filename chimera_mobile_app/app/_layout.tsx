@@ -2,8 +2,9 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
-import { AuthProvider } from '@infra/auth/auth-provider';
-import { StreamChatProvider } from '@infra/stream/stream-provider';
+// Use relative imports for proper platform-specific resolution (.web.tsx on web, .tsx on native)
+import { AuthProvider } from '../src/infrastructure/auth/auth-provider';
+import { StreamChatProvider } from '../src/infrastructure/stream/stream-provider';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
