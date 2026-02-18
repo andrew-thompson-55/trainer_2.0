@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { StreamChat } from 'stream-chat';
-import { OverlayProvider, Chat } from 'stream-chat-expo';
 import { useAuth } from '../auth/auth-provider';
 import { authFetch } from '../fetch/auth-fetch';
-import { wolfTheme } from './wolf-theme';
 
 type StreamChatContextType = {
   client: StreamChat | null;
@@ -28,7 +26,6 @@ export const StreamChatProvider = ({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!user) {
-      // Disconnect on logout
       if (client) {
         client.disconnectUser().then(() => {
           setClient(null);
@@ -71,24 +68,16 @@ export const StreamChatProvider = ({ children }: { children: React.ReactNode }) 
     connect();
 
     return () => {
-      // Cleanup on unmount
       if (client) {
         client.disconnectUser();
       }
     };
   }, [user]);
 
+  // On web, skip stream-chat-expo's OverlayProvider/Chat (React Native only)
   return (
     <StreamChatContext.Provider value={{ client, isReady, error }}>
-      {isReady && client ? (
-        <OverlayProvider value={{ style: wolfTheme }}>
-          <Chat client={client}>
-            {children}
-          </Chat>
-        </OverlayProvider>
-      ) : (
-        children
-      )}
+      {children}
     </StreamChatContext.Provider>
   );
 };
