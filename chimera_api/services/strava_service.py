@@ -3,6 +3,7 @@ import logging
 import requests
 from datetime import datetime, timedelta, timezone
 from db_client import supabase_admin
+from services.user_settings_service import get_user_settings, get_user_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -151,12 +152,13 @@ async def _auto_link_to_plan(user_id: str, completed_id, strava_data):
     candidates = response.data
     match = None
 
-    # Hardcode -5 for now (Andrew's Timezone), later fetch from user_settings
-    USER_TIMEZONE_OFFSET = -5
+    # Dynamic timezone lookup from user_settings
+    settings = await get_user_settings(user_id)
+    user_tz = get_user_timezone(settings)
 
     for plan in candidates:
         plan_utc = datetime.fromisoformat(plan["start_time"].replace("Z", "+00:00"))
-        plan_local = plan_utc + timedelta(hours=USER_TIMEZONE_OFFSET)
+        plan_local = plan_utc.astimezone(user_tz)
         if plan_local.strftime("%Y-%m-%d") == target_date_str:
             match = plan
             break

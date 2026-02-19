@@ -1,7 +1,6 @@
 import os
 import logging
 import google.generativeai as genai
-from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -18,11 +17,9 @@ from schemas import (
     DailyLogResponse,
 )
 from services import workout_service, daily_log_service
-from db_client import supabase_admin
-from ai_tools import tools_schema, execute_tool_call
+from services.agent_service import run_agent
 from dependencies import get_current_user
 
-# 👇 NEW IMPORTS
 from routers import auth, strava
 
 load_dotenv()
@@ -64,75 +61,14 @@ def health_check():
     return {"status": "Chimera is Online"}
 
 
-# --- AI CHAT (Kept in Main for now) ---
+# --- AI CHAT (Agent-powered) ---
 @app.post("/v1/chat")
 async def chat_with_gemini(
     request: ChatRequest, user_id: str = Depends(get_current_user)
 ):
-    # ... (Your existing AI Chat logic - abbreviated for safety) ...
-    # (Paste your existing /v1/chat function body here exactly as it was)
     try:
-        model = genai.GenerativeModel(model_name="gemini-2.5-flash", tools=tools_schema)
-        utc_now = datetime.now(timezone.utc)
-        local_time = utc_now + timedelta(hours=-5)
-        current_time_str = local_time.strftime("%Y-%m-%d %H:%M:%S")
-
-        system_instructions = f"""
-        You are Chimera, an expert endurance training coach.
-        CRITICAL CONTEXT:
-        - The user is in Eastern Standard Time (UTC-5).
-        - The current local time for the user is: {current_time_str}.
-        - Today is {local_time.strftime("%A")}.
-        RULES:
-        1. When the user asks for a time (e.g. "6am"), ALWAYS append the timezone offset "-05:00".
-        2. If the user asks to schedule, add, or plan a workout, YOU MUST use the 'create_workout' tool.
-        """
-
-        chat = model.start_chat(
-            history=[
-                {"role": "user", "parts": system_instructions},
-                {
-                    "role": "model",
-                    "parts": "Understood. I will use Eastern Time (UTC-5).",
-                },
-            ]
-        )
-        response = chat.send_message(request.message)
-
-        # Tool Handling Logic
-        final_reply = ""
-        if not response.candidates:
-            raise HTTPException(status_code=500, detail="Empty response from AI")
-        part = response.candidates[0].content.parts[0]
-        if part.function_call:
-            fname = part.function_call.name
-            fargs = dict(part.function_call.args)
-            tool_result = await execute_tool_call(fname, fargs, user_id)
-            function_response = {
-                "function_response": {
-                    "name": fname,
-                    "response": {"result": tool_result},
-                }
-            }
-            final_response = chat.send_message([function_response])
-            final_reply = final_response.text
-        else:
-            final_reply = response.text
-
-        # Log to DB
-        if supabase_admin:
-            try:
-                supabase_admin.table("chat_logs").insert(
-                    {
-                        "user_id": user_id,
-                        "user_message": request.message,
-                        "ai_response": final_reply,
-                    }
-                ).execute()
-            except Exception as e:
-                logger.warning(f"Chat log failed: {e}")
-
-        return {"reply": final_reply}
+        result = await run_agent(user_id, request.message)
+        return {"reply": result["reply"]}
     except Exception as e:
         logger.error(f"AI Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

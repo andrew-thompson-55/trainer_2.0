@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, ConfigDict
 # --- Chat Models ---
 class ChatRequest(BaseModel):
     message: str
+    conversation_id: Optional[str] = None
 
 
 # --- Auth Models ---
@@ -99,3 +100,14 @@ class ProfileUpdate(BaseModel):
 
     name: Optional[str] = None
     timezone: Optional[str] = None
+
+
+class UserProfileUpdate(BaseModel):
+    """Extended profile fields for training context"""
+
+    training_goals: Optional[str] = None
+    target_race: Optional[str] = None
+    target_race_date: Optional[str] = None
+    weekly_volume_target_hours: Optional[float] = None
+    preferred_workout_time: Optional[str] = None
+    injury_notes: Optional[str] = None
