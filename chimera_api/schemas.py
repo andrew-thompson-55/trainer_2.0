@@ -99,10 +99,3 @@ class ProfileUpdate(BaseModel):
 
     name: Optional[str] = None
     timezone: Optional[str] = None
-
-
-# --- Stream Chat Models ---
-class StreamTokenResponse(BaseModel):
-    stream_token: str
-    stream_api_key: str
-    user_id: str

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform } from 'react-native';
 
 const Colors = {
   light: { tint: '#2f95dc' },
@@ -61,6 +61,7 @@ export default function TabLayout() {
         name="coach"
         options={{
           title: 'Coach',
+          href: Platform.OS === 'web' ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'chatbubbles' : 'chatbubbles-outline'} color={color} />
           ),
