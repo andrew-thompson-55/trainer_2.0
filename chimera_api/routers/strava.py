@@ -143,12 +143,14 @@ async def webhook_strava_validation(
 @router.post("/webhooks/strava", status_code=200)
 async def webhook_strava_event(payload: StravaWebhookEvent):
     logger.info(f"Received Strava Event: {payload}")
-    if payload.object_type == "activity" and payload.aspect_type == "create":
-        # We can still use the service for complex processing if it exists
-        if hasattr(strava_service, "handle_webhook_event"):
-            await strava_service.handle_webhook_event(
-                payload.object_id, payload.owner_id
-            )
+    if payload.object_type == "activity" and payload.aspect_type in (
+        "create",
+        "update",
+        "delete",
+    ):
+        await strava_service.handle_webhook_event(
+            payload.object_id, payload.owner_id, payload.aspect_type
+        )
     return {"status": "event received"}
 
 
@@ -181,3 +183,22 @@ def get_strava_auth_url(return_url: str):
     strava_url = f"https://www.strava.com/oauth/authorize?{urlencode(params)}"
 
     return {"url": strava_url}
+
+
+# --- 5. HISTORICAL SYNC ---
+@router.post("/integrations/strava/sync")
+async def sync_strava_activities(
+    days: int = Query(default=30, ge=1, le=365),
+    user_id: str = Depends(get_current_user),
+):
+    """Backfill recent Strava activities into the database."""
+    result = await strava_service.sync_recent_activities(user_id, days=days)
+    return result
+
+
+# --- 6. DISCONNECT ---
+@router.delete("/integrations/strava")
+async def disconnect_strava(user_id: str = Depends(get_current_user)):
+    """Clear Strava tokens and disconnect the integration."""
+    await strava_service.disconnect_strava(user_id)
+    return {"status": "disconnected"}
