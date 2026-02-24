@@ -20,14 +20,28 @@ export const Colors = {
   border: '#E5E5EA',        // Thin lines
   iconInactive: '#C7C7CC',  // Unchecked boxes
 
-  /// 👇 NEW: Activity Specific Colors
+  // Activity Specific Colors
   activity: {
     run: '#FF3B30',      // Red
     bike: '#007AFF',     // Blue
     swim: '#5AC8FA',     // Light Blue
     strength: '#AF52DE', // Purple
     other: '#8E8E93'     // Gray
-  } as Record<string, string> // Helps Typescript allow dynamic access
+  } as Record<string, string>,
+
+  // Check-in Colors
+  checkin: {
+    worst: '#ef4444',      // Red
+    low: '#f97316',        // Orange
+    mid: '#eab308',        // Yellow
+    good: '#22c55e',       // Green
+    best: '#10b981',       // Emerald
+    streakBg: '#fef3c7',   // Amber-50
+    streakText: '#b45309',  // Amber-700
+    savedBg: '#f0fdf4',    // Green-50
+    savedBorder: '#bbf7d0', // Green-200
+    savedText: '#166534',   // Green-800
+  },
 };
 
 export const Layout = {
@@ -43,7 +57,12 @@ export const Layout = {
     s: 8,
     m: 12,
     round: 100,
-  }
+  },
+  checkin: {
+    cardRadius: 20,
+    optionRadius: 16,
+    maxWidth: 420,
+  },
 };
 
 export const Typography = {

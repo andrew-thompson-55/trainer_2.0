@@ -16,6 +16,9 @@ export default function SettingsScreen() {
   const [useGraphView, setUseGraphView] = useState(false);
   const [defaultPage, setDefaultPage] = useState('/(tabs)'); // Default to Home
   const [weightUnit, setWeightUnitState] = useState<WeightUnit>('kg');
+  const [morningReminder, setMorningReminder] = useState(false);
+  const [workoutReminder, setWorkoutReminder] = useState(false);
+  const [streakReminder, setStreakReminder] = useState(false);
 
   // 1. HANDLE DEEP LINKS (Strava Redirect)
   const url = Linking.useURL();
@@ -50,6 +53,9 @@ export default function SettingsScreen() {
     userApi.getUserSettings(authFetch).then(settings => {
       setWeightUnitState(settings.weight_unit);
       AsyncStorage.setItem('chimera_weight_unit', settings.weight_unit);
+      setMorningReminder(settings.morning_checkin_reminder ?? false);
+      setWorkoutReminder(settings.workout_update_reminder ?? false);
+      setStreakReminder(settings.streak_reminder ?? false);
     }).catch(() => {/* use cached */});
   }, []);
 
@@ -71,6 +77,20 @@ export default function SettingsScreen() {
       await userApi.updateUserSettings(authFetch, { weight_unit: unit });
     } catch (e) {
       console.log('Failed to sync weight unit:', e);
+    }
+  };
+
+  const handleToggleNotification = async (
+    key: 'morning_checkin_reminder' | 'workout_update_reminder' | 'streak_reminder',
+    value: boolean,
+    setter: (v: boolean) => void
+  ) => {
+    setter(value);
+    try {
+      await userApi.updateUserSettings(authFetch, { [key]: value });
+    } catch (e) {
+      console.log(`Failed to sync ${key}:`, e);
+      setter(!value); // revert on failure
     }
   };
 
@@ -200,6 +220,47 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        <View style={{ height: 24 }} />
+
+        {/* SECTION: NOTIFICATIONS */}
+        <Text style={styles.sectionTitle}>Notifications</Text>
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Ionicons name="sunny-outline" size={24} color={Colors.primary} />
+            <Text style={styles.rowText}>Morning Check-in</Text>
+          </View>
+          <Switch
+            value={morningReminder}
+            onValueChange={(v) => handleToggleNotification('morning_checkin_reminder', v, setMorningReminder)}
+            trackColor={{ false: '#C7C7CC', true: Colors.primary }}
+          />
+        </View>
+        <View style={{ height: 12 }} />
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Ionicons name="fitness-outline" size={24} color={Colors.primary} />
+            <Text style={styles.rowText}>Workout Update</Text>
+          </View>
+          <Switch
+            value={workoutReminder}
+            onValueChange={(v) => handleToggleNotification('workout_update_reminder', v, setWorkoutReminder)}
+            trackColor={{ false: '#C7C7CC', true: Colors.primary }}
+          />
+        </View>
+        <View style={{ height: 12 }} />
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Ionicons name="flame-outline" size={24} color={Colors.primary} />
+            <Text style={styles.rowText}>Streak Reminder</Text>
+          </View>
+          <Switch
+            value={streakReminder}
+            onValueChange={(v) => handleToggleNotification('streak_reminder', v, setStreakReminder)}
+            trackColor={{ false: '#C7C7CC', true: Colors.primary }}
+          />
+        </View>
+        <Text style={styles.helperText}>Get reminded to log your daily check-in and rate workouts.</Text>
 
         <View style={{ height: 24 }} />
 

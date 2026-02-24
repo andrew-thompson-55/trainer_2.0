@@ -9,9 +9,13 @@ export type {
 } from './workout';
 
 export type {
-  DailyLog,
-  DailyLogCreate,
-} from './daily-log';
+  CheckinStatus,
+  MorningCheckin,
+  WorkoutUpdate as CheckinWorkoutUpdate,
+  PendingWorkout,
+  MorningCheckinCreate,
+  WorkoutUpdateCreate,
+} from './checkin';
 
 export type {
   StravaActivity,

@@ -13,10 +13,11 @@ from schemas import (
     WorkoutCreate,
     WorkoutUpdate,
     WorkoutResponse,
-    DailyLogCreate,
-    DailyLogResponse,
+    MorningCheckinCreate,
+    WorkoutUpdateCreate,
 )
-from services import workout_service, daily_log_service
+from services import workout_service
+from services import daily_checkin_service
 from services.agent_service import run_agent
 from dependencies import get_current_user
 
@@ -119,14 +120,37 @@ async def get_linked_activity(
     return activity if activity else {}
 
 
-# --- DAILY LOGS (Kept in Main for now) ---
-@app.put("/v1/daily-logs/{date_str}", response_model=DailyLogResponse, tags=["Tracker"])
-async def upsert_daily_log(
-    date_str: str, log_data: DailyLogCreate, user_id: str = Depends(get_current_user)
+# --- DAILY CHECK-IN ---
+@app.get("/v1/checkin/{date_str}/status", tags=["Check-in"])
+async def get_checkin_status(date_str: str, user_id: str = Depends(get_current_user)):
+    return await daily_checkin_service.get_today_status(user_id, date_str)
+
+
+@app.put("/v1/checkin/{date_str}/morning", tags=["Check-in"])
+async def save_morning_checkin(
+    date_str: str,
+    data: MorningCheckinCreate,
+    user_id: str = Depends(get_current_user),
 ):
-    return await daily_log_service.upsert_log(date_str, log_data, user_id)
+    return await daily_checkin_service.upsert_morning_checkin(
+        user_id, date_str, data.model_dump(exclude_unset=True)
+    )
 
 
-@app.get("/v1/daily-logs/{date_str}", tags=["Tracker"])
-async def get_daily_log(date_str: str, user_id: str = Depends(get_current_user)):
-    return await daily_log_service.get_log(date_str, user_id)
+@app.put("/v1/checkin/workout/{strava_activity_id}", tags=["Check-in"])
+async def save_workout_update(
+    strava_activity_id: str,
+    data: WorkoutUpdateCreate,
+    user_id: str = Depends(get_current_user),
+):
+    return await daily_checkin_service.upsert_workout_update(
+        user_id, strava_activity_id, data.model_dump()
+    )
+
+
+@app.get("/v1/checkin/streak", tags=["Check-in"])
+async def get_checkin_streak(user_id: str = Depends(get_current_user)):
+    from datetime import date
+    today = date.today().isoformat()
+    streak = await daily_checkin_service.get_streak(user_id, today)
+    return {"streak": streak}

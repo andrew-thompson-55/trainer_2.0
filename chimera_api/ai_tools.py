@@ -93,7 +93,7 @@ tools_schema = [
             },
             {
                 "name": "get_daily_logs",
-                "description": "Query the user's daily wellness logs (sleep, HRV, soreness, motivation) for a date range.",
+                "description": "Query the user's daily check-in data (readiness, soreness, energy, mood on 1-5 scale, plus workout RPE) for a date range.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -291,14 +291,14 @@ async def execute_tool_call(function_name, args, user_id: str):
             ],
         }
 
-    # 5. GET DAILY LOGS
+    # 5. GET DAILY LOGS (from daily_checkin table)
     elif function_name == "get_daily_logs":
         start = args["start_date"]
         end = args.get("end_date", datetime.now().strftime("%Y-%m-%d"))
 
         try:
             response = (
-                supabase_admin.table("daily_logs")
+                supabase_admin.table("daily_checkin")
                 .select("*")
                 .eq("user_id", user_id)
                 .gte("date", start)
@@ -306,27 +306,37 @@ async def execute_tool_call(function_name, args, user_id: str):
                 .order("date", desc=False)
                 .execute()
             )
-            logs = response.data or []
+            entries = response.data or []
+
+            # Group by date for readable output
+            by_date = {}
+            for e in entries:
+                d = e["date"]
+                if d not in by_date:
+                    by_date[d] = {"date": d, "morning": None, "workout_rpes": []}
+                if e["entry_type"] == "morning_checkin":
+                    by_date[d]["morning"] = {
+                        "readiness": e.get("readiness"),
+                        "soreness": e.get("soreness"),
+                        "energy": e.get("energy"),
+                        "mood": e.get("mood"),
+                        "note": e.get("note"),
+                        "body_weight": e.get("body_weight"),
+                        "body_weight_unit": e.get("body_weight_unit"),
+                    }
+                elif e["entry_type"] == "workout_update":
+                    by_date[d]["workout_rpes"].append({
+                        "strava_activity_id": e.get("strava_activity_id"),
+                        "session_rpe": e.get("session_rpe"),
+                    })
+
             return {
                 "status": "success",
-                "count": len(logs),
-                "logs": [
-                    {
-                        "date": l["date"],
-                        "sleep_total": l.get("sleep_total"),
-                        "deep_sleep": l.get("deep_sleep"),
-                        "rem_sleep": l.get("rem_sleep"),
-                        "hrv_score": l.get("hrv_score"),
-                        "motivation": l.get("motivation"),
-                        "soreness": l.get("soreness"),
-                        "stress": l.get("stress"),
-                        "body_weight_kg": l.get("body_weight_kg"),
-                    }
-                    for l in logs
-                ],
+                "count": len(by_date),
+                "logs": list(by_date.values()),
             }
         except Exception as e:
-            logger.error(f"Failed to fetch daily logs: {e}")
+            logger.error(f"Failed to fetch daily checkins: {e}")
             return {"status": "error", "message": str(e)}
 
     # 6. GET COMPLETED ACTIVITIES

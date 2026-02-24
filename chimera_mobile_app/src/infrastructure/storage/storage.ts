@@ -9,6 +9,5 @@ export interface StorageAdapter {
 // Centralized cache keys
 export const CACHE_KEYS = {
   WORKOUTS: 'chimera_cache_workouts',
-  DAILY_LOGS: 'chimera_cache_daily_logs',
   DASHBOARD: 'chimera_cache_dashboard',
 } as const;

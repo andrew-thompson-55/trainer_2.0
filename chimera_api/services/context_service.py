@@ -55,13 +55,13 @@ async def build_agent_context(user_id: str) -> dict:
         logger.warning(f"Failed to fetch upcoming workouts: {e}")
         context["upcoming_workouts"] = []
 
-    # Recent daily logs (last 7 days)
+    # Recent daily check-ins (last 7 days)
     try:
         log_start = (now - timedelta(days=7)).strftime("%Y-%m-%d")
         log_end = now.strftime("%Y-%m-%d")
         resp = (
-            supabase_admin.table("daily_logs")
-            .select("date, sleep_total, deep_sleep, hrv_score, motivation, soreness, stress, body_weight_kg")
+            supabase_admin.table("daily_checkin")
+            .select("date, entry_type, readiness, soreness, energy, mood, note, session_rpe, body_weight, body_weight_unit")
             .eq("user_id", user_id)
             .gte("date", log_start)
             .lte("date", log_end)
@@ -70,7 +70,7 @@ async def build_agent_context(user_id: str) -> dict:
         )
         context["recent_daily_logs"] = resp.data or []
     except Exception as e:
-        logger.warning(f"Failed to fetch daily logs: {e}")
+        logger.warning(f"Failed to fetch daily checkins: {e}")
         context["recent_daily_logs"] = []
 
     # Recent completed activities (last 7 days, summarized)
@@ -146,22 +146,27 @@ def format_context_for_prompt(ctx: dict) -> str:
         lines.append("UPCOMING WORKOUTS: None scheduled in next 7 days")
     lines.append("")
 
-    # Daily logs
+    # Daily check-ins
     logs = ctx.get("recent_daily_logs", [])
     if logs:
-        lines.append("RECENT DAILY LOGS (last 7 days):")
+        lines.append("RECENT DAILY CHECK-INS (last 7 days, 1-5 scale):")
         for l in logs:
             parts = [f"Date: {l['date']}"]
-            if l.get("sleep_total") is not None:
-                parts.append(f"Sleep: {l['sleep_total']}h")
-            if l.get("hrv_score") is not None:
-                parts.append(f"HRV: {l['hrv_score']}")
-            if l.get("soreness") is not None:
-                parts.append(f"Soreness: {l['soreness']}/10")
-            if l.get("motivation") is not None:
-                parts.append(f"Motivation: {l['motivation']}/10")
-            if l.get("stress") is not None:
-                parts.append(f"Stress: {l['stress']}/10")
+            entry_type = l.get("entry_type", "morning_checkin")
+            if entry_type == "morning_checkin":
+                if l.get("readiness") is not None:
+                    parts.append(f"Readiness: {l['readiness']}/5")
+                if l.get("soreness") is not None:
+                    parts.append(f"Soreness: {l['soreness']}/5")
+                if l.get("energy") is not None:
+                    parts.append(f"Energy: {l['energy']}/5")
+                if l.get("mood") is not None:
+                    parts.append(f"Mood: {l['mood']}/5")
+                if l.get("note"):
+                    parts.append(f"Note: {l['note']}")
+            elif entry_type == "workout_update":
+                if l.get("session_rpe") is not None:
+                    parts.append(f"Workout RPE: {l['session_rpe']}/5")
             lines.append(f"  - {' | '.join(parts)}")
     lines.append("")
 

@@ -1,4 +1,4 @@
-// Route: Tracker
-import { TrackerScreen } from '@features/tracker';
+// Route: Check-in
+import { CheckinScreen } from '@features/checkin';
 
-export default TrackerScreen;
+export default CheckinScreen;

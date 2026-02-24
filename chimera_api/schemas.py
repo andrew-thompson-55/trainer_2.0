@@ -47,29 +47,6 @@ class WorkoutResponse(WorkoutBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# --- Daily Log Models ---
-class DailyLogBase(BaseModel):
-    sleep_total: Optional[float] = None
-    deep_sleep: Optional[float] = None
-    rem_sleep: Optional[float] = None
-    resources_percent: Optional[int] = None
-    hrv_score: Optional[int] = None
-    min_sleep_hr: Optional[int] = None
-    motivation: Optional[int] = None
-    soreness: Optional[int] = None
-    stress: Optional[int] = None
-    body_weight_kg: Optional[float] = None
-
-
-class DailyLogCreate(DailyLogBase):
-    pass
-
-
-class DailyLogResponse(DailyLogBase):
-    id: UUID
-    date: date_type
-    user_id: UUID
-
 
 # --- Strava Auth Models (Restored) ---
 class StravaAuthCode(BaseModel):
@@ -116,7 +93,32 @@ class UserProfileUpdate(BaseModel):
 class UserSettingsUpdate(BaseModel):
     """User-facing settings stored in user_settings table"""
     weight_unit: Optional[Literal['kg', 'lbs']] = None
+    morning_checkin_reminder: Optional[bool] = None
+    morning_checkin_reminder_time: Optional[str] = None
+    workout_update_reminder: Optional[bool] = None
+    streak_reminder: Optional[bool] = None
+    streak_reminder_time: Optional[str] = None
 
 
 class UserSettingsResponse(BaseModel):
     weight_unit: str = 'kg'
+    morning_checkin_reminder: bool = False
+    morning_checkin_reminder_time: str = '08:00'
+    workout_update_reminder: bool = False
+    streak_reminder: bool = False
+    streak_reminder_time: str = '10:00'
+
+
+# --- Daily Check-in Models ---
+class MorningCheckinCreate(BaseModel):
+    readiness: Optional[int] = Field(None, ge=1, le=5)
+    soreness: Optional[int] = Field(None, ge=1, le=5)
+    energy: Optional[int] = Field(None, ge=1, le=5)
+    mood: Optional[int] = Field(None, ge=1, le=5)
+    note: Optional[str] = None
+    body_weight: Optional[float] = None
+    body_weight_unit: Optional[Literal['kg', 'lbs']] = 'lbs'
+
+
+class WorkoutUpdateCreate(BaseModel):
+    session_rpe: int = Field(..., ge=1, le=5)

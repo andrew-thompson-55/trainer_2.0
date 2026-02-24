@@ -11,7 +11,7 @@ export default function DashboardScreen() {
     { title: 'Training Plan', icon: 'list', route: '/(tabs)/itinerary', color: Colors.primary },
     { title: 'Calendar', icon: 'calendar', route: '/(tabs)/calendar', color: '#FF9500' }, // Orange
     { title: 'AI Coach', icon: 'chatbubbles', route: '/(tabs)/chat', color: '#5856D6' }, // Purple
-    { title: 'Stats & Tracker', icon: 'stats-chart', route: '/(tabs)/tracker', color: '#34C759' }, // Green
+    { title: 'Check-in', icon: 'checkmark-circle', route: '/(tabs)/tracker', color: '#34C759' }, // Green
     { title: 'Settings', icon: 'settings', route: '/(tabs)/settings', color: '#8E8E93' }, // Gray
   ];
 

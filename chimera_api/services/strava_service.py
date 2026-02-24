@@ -182,6 +182,9 @@ async def _handle_activity_create(user_id: str, activity_id: int):
 
     await _auto_link_to_plan(user_id, result.data[0]["id"], data)
 
+    # Check if workout update reminder should be sent
+    await _check_workout_update_reminder(user_id, data)
+
 
 async def _handle_activity_update(user_id: str, activity_id: int):
     """Re-fetch updated activity from Strava and upsert into DB."""
@@ -227,6 +230,46 @@ async def _handle_activity_delete(user_id: str, activity_id: int):
     ).execute()
 
     logger.info(f"Deleted activity {activity_id} for user {user_id}")
+
+
+# --- Workout Update Reminder ---
+
+
+async def _check_workout_update_reminder(user_id: str, strava_data: dict):
+    """Check if we should send a workout update reminder for this activity."""
+    try:
+        settings = await get_user_settings(user_id)
+        if not settings.get("workout_update_reminder"):
+            return
+
+        # Check if activity is from today
+        local_iso = strava_data.get("start_date_local", "")
+        activity_date = local_iso.split("T")[0]
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+
+        if activity_date != today:
+            return
+
+        source_id = str(strava_data["id"])
+
+        # Check if workout_update already exists for this activity
+        existing = (
+            supabase_admin.table("daily_checkin")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("strava_activity_id", source_id)
+            .execute()
+        )
+        if existing.data:
+            return
+
+        # Placeholder: log notification intent (actual push via FCM is a separate concern)
+        logger.info(
+            f"NOTIFICATION: Would send workout update reminder to user {user_id} "
+            f"for activity {source_id}"
+        )
+    except Exception as e:
+        logger.warning(f"Failed to check workout update reminder: {e}")
 
 
 # --- Auto-Linker ---

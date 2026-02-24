@@ -20,6 +20,5 @@ export const storageAdapter: StorageAdapter = {
 // Define CACHE_KEYS directly to avoid circular dependency
 export const CACHE_KEYS = {
   WORKOUTS: 'chimera_cache_workouts',
-  DAILY_LOGS: 'chimera_cache_daily_logs',
   DASHBOARD: 'chimera_cache_dashboard',
 } as const;

@@ -70,9 +70,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="tracker"
         options={{
-          title: 'Tracker',
+          title: 'Check-in',
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} color={color} />
+            <TabBarIcon name={focused ? 'checkmark-circle' : 'checkmark-circle-outline'} color={color} />
           ),
         }}
       />

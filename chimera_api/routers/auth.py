@@ -153,7 +153,14 @@ def update_profile(data: ProfileUpdate, user_id: str = Depends(get_current_user)
 @router.get("/users/settings", response_model=UserSettingsResponse)
 async def get_user_settings_route(user_id: str = Depends(get_current_user)):
     settings = await user_settings_service.get_user_settings(user_id)
-    return UserSettingsResponse(weight_unit=settings.get("weight_unit", "kg"))
+    return UserSettingsResponse(
+        weight_unit=settings.get("weight_unit", "kg"),
+        morning_checkin_reminder=settings.get("morning_checkin_reminder", False),
+        morning_checkin_reminder_time=settings.get("morning_checkin_reminder_time", "08:00"),
+        workout_update_reminder=settings.get("workout_update_reminder", False),
+        streak_reminder=settings.get("streak_reminder", False),
+        streak_reminder_time=settings.get("streak_reminder_time", "10:00"),
+    )
 
 
 @router.put("/users/settings")
