@@ -10,7 +10,9 @@
       "Bash(ls:*)",
       "WebFetch(domain:getstream.io)",
       "Bash(python3:*)",
-      "Bash(npx expo start:*)"
+      "Bash(npx expo start:*)",
+      "Bash(npx tsc:*)",
+      "Bash(python -c:*)"
     ]
   }
 }
