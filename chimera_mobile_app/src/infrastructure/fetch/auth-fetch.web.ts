@@ -1,14 +1,13 @@
 // authFetch.ts - Authenticated fetch wrapper (WEB VERSION)
 import { API_BASE } from './config';
+import { STORAGE_KEYS } from '../storage/keys';
 
 export async function authFetch(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  console.log('[auth-fetch.web] Running WEB version using localStorage');
   // Use localStorage for web instead of SecureStore
-  const token = localStorage.getItem('chimera_token');
-  console.log('[auth-fetch.web] Token:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
+  const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

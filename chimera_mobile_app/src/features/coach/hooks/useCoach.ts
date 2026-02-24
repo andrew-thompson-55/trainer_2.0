@@ -3,6 +3,9 @@
 
 import { useState, useCallback } from 'react';
 import { authFetch } from '@infra/fetch/auth-fetch';
+import { pkg } from '@infra/package';
+
+const { persona } = pkg;
 
 interface ChatMessage {
   _id: string | number;
@@ -26,12 +29,12 @@ export function useCoach(): UseCoachReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       _id: 1,
-      text: "Hey! I'm your AI coach. Ask me anything about your training plan, pacing strategy, or recovery. 🏃‍♂️",
+      text: `${persona.coachGreeting} ${persona.coachGreetingEmoji}`,
       createdAt: new Date(),
       user: {
         _id: 2,
-        name: 'Coach',
-        avatar: 'https://placeimg.com/140/140/any',
+        name: persona.coachName,
+        avatar: persona.coachAvatarUrl,
       },
     },
   ]);
@@ -61,7 +64,7 @@ export function useCoach(): UseCoachReturn {
       });
 
       const data = await response.json();
-      const aiReply = data.reply || "Sorry, I couldn't process that.";
+      const aiReply = data.reply || persona.chatProcessError;
 
       const aiMessage: ChatMessage = {
         _id: Date.now() + 1,
@@ -69,8 +72,8 @@ export function useCoach(): UseCoachReturn {
         createdAt: new Date(),
         user: {
           _id: 2,
-          name: 'Coach',
-          avatar: 'https://placeimg.com/140/140/any',
+          name: persona.coachName,
+          avatar: persona.coachAvatarUrl,
         },
       };
 
@@ -79,11 +82,11 @@ export function useCoach(): UseCoachReturn {
       console.error('Chat error:', error);
       const errorMessage: ChatMessage = {
         _id: Date.now() + 1,
-        text: 'Oops! Something went wrong. Try again?',
+        text: persona.chatNetworkError,
         createdAt: new Date(),
         user: {
           _id: 2,
-          name: 'Coach',
+          name: persona.coachName,
         },
       };
       setMessages(prev => [errorMessage, ...prev]);
@@ -96,11 +99,11 @@ export function useCoach(): UseCoachReturn {
     setMessages([
       {
         _id: 1,
-        text: "Hey! I'm your AI coach. Ask me anything!",
+        text: persona.coachClearGreeting,
         createdAt: new Date(),
         user: {
           _id: 2,
-          name: 'Coach',
+          name: persona.coachName,
         },
       },
     ]);

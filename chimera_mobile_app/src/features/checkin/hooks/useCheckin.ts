@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authFetch } from '@infra/fetch/auth-fetch';
+import { STORAGE_KEYS } from '@infra/storage/keys';
 import * as checkinApi from '@domain/api/checkin';
 import type { CheckinStatus, PendingWorkout, MorningCheckin, WorkoutUpdate } from '@domain/types/checkin';
 
@@ -29,7 +30,7 @@ export function useCheckin() {
 
   // Load weight unit preference
   useEffect(() => {
-    AsyncStorage.getItem('chimera_weight_unit').then((val) => {
+    AsyncStorage.getItem(STORAGE_KEYS.WEIGHT_UNIT).then((val) => {
       if (val === 'kg' || val === 'lbs') setWeightUnit(val);
     });
   }, []);

@@ -1,0 +1,36 @@
+{
+  "healthCheckMessage": "Chimera is Online",
+  "defaultTimezone": "America/New_York",
+  "storageKeyPrefix": "chimera",
+  "activityTypes": ["run", "bike", "swim", "strength", "other"],
+  "defaultActivityType": "run",
+  "defaultWeightUnit": "kg",
+  "defaultBodyWeightUnit": "lbs",
+  "notificationDefaults": {
+    "morningCheckinReminder": false,
+    "morningCheckinReminderTime": "08:00",
+    "workoutUpdateReminder": false,
+    "streakReminder": false,
+    "streakReminderTime": "10:00"
+  },
+  "stravaTypeMap": {
+    "run": "run",
+    "trail run": "run",
+    "virtual run": "run",
+    "ride": "bike",
+    "virtual ride": "bike",
+    "gravel ride": "bike",
+    "mountain bike ride": "bike",
+    "e-bike ride": "bike",
+    "swim": "swim",
+    "open water swimming": "swim",
+    "weight training": "strength",
+    "workout": "strength",
+    "crossfit": "strength"
+  },
+  "calendar": {
+    "plannedEventColorId": "6",
+    "completedEventColorId": "10",
+    "eventEmoji": "\ud83c\udfcb\ufe0f"
+  }
+}

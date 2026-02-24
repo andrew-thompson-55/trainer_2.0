@@ -1,0 +1,104 @@
+{
+  "light": {
+    "primary": "#007AFF",
+    "success": "#34C759",
+    "danger": "#FF3B30",
+    "background": "#F2F2F7",
+    "card": "#FFFFFF",
+    "header": "#FFFFFF",
+    "textPrimary": "#000000",
+    "textSecondary": "#8E8E93",
+    "border": "#E5E5EA",
+    "iconInactive": "#C7C7CC",
+    "switchTrackOff": "#C7C7CC"
+  },
+  "dark": {
+    "primary": "#0A84FF",
+    "success": "#30D158",
+    "danger": "#FF453A",
+    "background": "#000000",
+    "card": "#1C1C1E",
+    "header": "#1C1C1E",
+    "textPrimary": "#FFFFFF",
+    "textSecondary": "#8E8E93",
+    "border": "#38383A",
+    "iconInactive": "#48484A",
+    "switchTrackOff": "#48484A"
+  },
+  "activity": {
+    "run": "#FF3B30",
+    "bike": "#007AFF",
+    "swim": "#5AC8FA",
+    "strength": "#AF52DE",
+    "other": "#8E8E93"
+  },
+  "checkin": {
+    "worst": "#ef4444",
+    "low": "#f97316",
+    "mid": "#eab308",
+    "good": "#22c55e",
+    "best": "#10b981",
+    "streakBg": "#fef3c7",
+    "streakText": "#b45309",
+    "savedBg": "#f0fdf4",
+    "savedBorder": "#bbf7d0",
+    "savedText": "#166534"
+  },
+  "coach": {
+    "light": {
+      "background": "#F2F2F7",
+      "userBubble": "#007AFF",
+      "aiBubble": "#FFFFFF",
+      "messageText": "#000000",
+      "inputBackground": "#FFFFFF",
+      "inputText": "#000000",
+      "inputBorder": "#E5E5EA",
+      "placeholderText": "#8E8E93",
+      "accent": "#007AFF",
+      "emptyTitle": "#000000",
+      "emptySubtitle": "#8E8E93"
+    },
+    "dark": {
+      "background": "#0D0D0F",
+      "userBubble": "#4A90E2",
+      "aiBubble": "#1C1C1E",
+      "messageText": "#E8EAED",
+      "inputBackground": "#1C1C1E",
+      "inputText": "#E8EAED",
+      "inputBorder": "#1C1C1E",
+      "placeholderText": "#6B7280",
+      "accent": "#4A90E2",
+      "emptyTitle": "#E8EAED",
+      "emptySubtitle": "#6B7280"
+    }
+  },
+  "login": {
+    "light": {
+      "background": "#FFFFFF",
+      "heroBackground": "#FFFFFF",
+      "titleColor": "#000000",
+      "subtitleColor": "#007AFF",
+      "bottomBackground": "#F2F2F7",
+      "buttonBackground": "#007AFF",
+      "buttonText": "#FFFFFF",
+      "disclaimerColor": "#8E8E93"
+    },
+    "dark": {
+      "background": "#000000",
+      "heroBackground": "#000000",
+      "titleColor": "#FFFFFF",
+      "subtitleColor": "#007AFF",
+      "bottomBackground": "#1C1C1E",
+      "buttonBackground": "#FFFFFF",
+      "buttonText": "#000000",
+      "disclaimerColor": "#48484A"
+    }
+  },
+  "dashboard": {
+    "trainingPlan": "#007AFF",
+    "calendar": "#FF9500",
+    "aiCoach": "#5856D6",
+    "checkIn": "#34C759",
+    "settings": "#8E8E93"
+  }
+}

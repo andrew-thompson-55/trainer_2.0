@@ -22,6 +22,7 @@ from services.agent_service import run_agent
 from dependencies import get_current_user
 
 from routers import auth, strava
+from package_loader import get_config
 
 load_dotenv()
 
@@ -59,7 +60,7 @@ if api_key:
 
 @app.get("/")
 def health_check():
-    return {"status": "Chimera is Online"}
+    return {"status": get_config()["healthCheckMessage"]}
 
 
 # --- AI CHAT (Agent-powered) ---

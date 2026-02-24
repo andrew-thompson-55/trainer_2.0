@@ -9,8 +9,12 @@ from db_client import supabase_admin
 from schemas import ProfileUpdate, GoogleLoginRequest, UserSettingsUpdate, UserSettingsResponse
 from services import user_settings_service
 from dependencies import get_current_user
+from package_loader import get_persona, get_config
 
 logger = logging.getLogger(__name__)
+
+_persona = get_persona()
+_config = get_config()
 router = APIRouter(prefix="/v1", tags=["Auth"])
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -29,7 +33,7 @@ def login_with_google(body: GoogleLoginRequest):
         )
         email = id_info.get("email")
         google_sub = id_info.get("sub")
-        name = id_info.get("name", "Athlete")
+        name = id_info.get("name", _persona["defaultUserName"])
 
         # 2. Check DB
         response = (
@@ -92,7 +96,7 @@ def login_with_google_web(body: dict):
             user_info = json.loads(response.read().decode())
 
         email = user_info.get("email")
-        name = user_info.get("name", "Athlete")
+        name = user_info.get("name", _persona["defaultUserName"])
         google_sub = user_info.get("id")
 
         if not email:
@@ -153,13 +157,14 @@ def update_profile(data: ProfileUpdate, user_id: str = Depends(get_current_user)
 @router.get("/users/settings", response_model=UserSettingsResponse)
 async def get_user_settings_route(user_id: str = Depends(get_current_user)):
     settings = await user_settings_service.get_user_settings(user_id)
+    _nd = _config["notificationDefaults"]
     return UserSettingsResponse(
-        weight_unit=settings.get("weight_unit", "kg"),
-        morning_checkin_reminder=settings.get("morning_checkin_reminder", False),
-        morning_checkin_reminder_time=settings.get("morning_checkin_reminder_time", "08:00"),
-        workout_update_reminder=settings.get("workout_update_reminder", False),
-        streak_reminder=settings.get("streak_reminder", False),
-        streak_reminder_time=settings.get("streak_reminder_time", "10:00"),
+        weight_unit=settings.get("weight_unit", _config["defaultWeightUnit"]),
+        morning_checkin_reminder=settings.get("morning_checkin_reminder", _nd["morningCheckinReminder"]),
+        morning_checkin_reminder_time=settings.get("morning_checkin_reminder_time", _nd["morningCheckinReminderTime"]),
+        workout_update_reminder=settings.get("workout_update_reminder", _nd["workoutUpdateReminder"]),
+        streak_reminder=settings.get("streak_reminder", _nd["streakReminder"]),
+        streak_reminder_time=settings.get("streak_reminder_time", _nd["streakReminderTime"]),
     )
 
 

@@ -3,18 +3,21 @@
   "compilerOptions": {
     "strict": true,
     "baseUrl": ".",
+    "resolveJsonModule": true,
     "paths": {
       "@/*": ["./*"],
       "@domain/*": ["./src/domain/*"],
       "@features/*": ["./src/features/*"],
       "@infra/*": ["./src/infrastructure/*"],
-      "@ui/*": ["./src/ui/*"]
+      "@ui/*": ["./src/ui/*"],
+      "@package/*": ["../packages/default/*"]
     }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "../packages/**/*.json"
   ]
 }

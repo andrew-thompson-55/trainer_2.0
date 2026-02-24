@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../services/api';
 import { Colors, Layout, Typography } from '../theme';
+import { STORAGE_KEYS } from '../src/infrastructure/storage/keys';
 
 import { StatsGrid } from '../components/stats-grid';
 import { StatsGraphs } from '../components/stats-graphs';
@@ -40,7 +41,7 @@ export default function WorkoutDetailsScreen() {
       const loadData = async () => {
         try {
           // A. Load Prefs
-          const pref = await AsyncStorage.getItem('chimera_stats_view_pref');
+          const pref = await AsyncStorage.getItem(STORAGE_KEYS.STATS_VIEW_PREF);
           if (isActive && pref) setUseGraphView(pref === 'graph');
 
           // B. Fetch Latest Workout Data (Title, Desc, etc.)

@@ -6,8 +6,11 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 from db_client import supabase_admin
+from package_loader import get_config
 
 logger = logging.getLogger(__name__)
+
+_cal_config = get_config()["calendar"]
 
 # Scopes needed
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
@@ -46,8 +49,8 @@ def sync_workout_to_calendar(workout_data: dict, is_new=False):
     )  # "c_123...@group.calendar.google.com"
 
     # Grab User Settings
-    planned_event_color = "6"  # push this up to settings and let user select.
-    completed_event_color = "10"
+    planned_event_color = _cal_config["plannedEventColorId"]
+    completed_event_color = _cal_config["completedEventColorId"]
 
     # 1. Format the Event
     start_dt = datetime.fromisoformat(workout_data["start_time"].replace("Z", "+00:00"))
@@ -58,7 +61,7 @@ def sync_workout_to_calendar(workout_data: dict, is_new=False):
         end_dt = start_dt + timedelta(hours=1)
 
     event_body = {
-        "summary": f"🏋️ {workout_data['title']}",
+        "summary": f"{_cal_config['eventEmoji']} {workout_data['title']}",
         "description": f"{workout_data.get('description', '')}\n\nType: {workout_data['activity_type']}\nStatus: {workout_data['status']}",
         "start": {"dateTime": start_dt.isoformat()},
         "end": {"dateTime": end_dt.isoformat()},

@@ -2,41 +2,45 @@ import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Typography } from '../../theme';
+import { useTheme } from '@infra/theme';
+import { pkg } from '@infra/package';
+
+const { strings } = pkg;
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { colors, dashboard } = useTheme();
 
   const menuItems = [
-    { title: 'Training Plan', icon: 'list', route: '/(tabs)/itinerary', color: Colors.primary },
-    { title: 'Calendar', icon: 'calendar', route: '/(tabs)/calendar', color: '#FF9500' }, // Orange
-    { title: 'AI Coach', icon: 'chatbubbles', route: '/(tabs)/chat', color: '#5856D6' }, // Purple
-    { title: 'Check-in', icon: 'checkmark-circle', route: '/(tabs)/tracker', color: '#34C759' }, // Green
-    { title: 'Settings', icon: 'settings', route: '/(tabs)/settings', color: '#8E8E93' }, // Gray
+    { title: strings['dashboard.menu.trainingPlan'], icon: 'list', route: '/(tabs)/itinerary', color: dashboard.trainingPlan },
+    { title: strings['dashboard.menu.calendar'], icon: 'calendar', route: '/(tabs)/calendar', color: dashboard.calendar },
+    { title: strings['dashboard.menu.aiCoach'], icon: 'chatbubbles', route: '/(tabs)/chat', color: dashboard.aiCoach },
+    { title: strings['dashboard.menu.checkIn'], icon: 'checkmark-circle', route: '/(tabs)/tracker', color: dashboard.checkIn },
+    { title: strings['dashboard.menu.settings'], icon: 'settings', route: '/(tabs)/settings', color: dashboard.settings },
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
-        
+
         {/* Header / Welcome Area */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Welcome Back,</Text>
-          <Text style={styles.title}>Ready to train?</Text>
+          <Text style={[styles.greeting, { color: colors.textSecondary }]}>{strings['dashboard.greeting']}</Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{strings['dashboard.title']}</Text>
         </View>
 
         {/* Grid of Big Buttons */}
         <View style={styles.grid}>
           {menuItems.map((item, index) => (
-            <TouchableOpacity 
-              key={index} 
-              style={styles.card} 
+            <TouchableOpacity
+              key={index}
+              style={[styles.card, { backgroundColor: colors.card }]}
               onPress={() => router.push(item.route as any)}
             >
               <View style={[styles.iconCircle, { backgroundColor: item.color + '20' }]}>
                 <Ionicons name={item.icon as any} size={32} color={item.color} />
               </View>
-              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{item.title}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -47,22 +51,21 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  container: { flex: 1 },
   content: { padding: 20 },
   header: { marginBottom: 30, marginTop: 20 },
-  greeting: { fontSize: 16, color: '#8E8E93', fontWeight: '600', textTransform: 'uppercase' },
-  title: { fontSize: 34, fontWeight: 'bold', color: '#000' },
-  
+  greeting: { fontSize: 16, fontWeight: '600', textTransform: 'uppercase' },
+  title: { fontSize: 34, fontWeight: 'bold' },
+
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-  card: { 
-    width: '47%', 
-    aspectRatio: 1, 
-    backgroundColor: '#FFF', 
-    borderRadius: 20, 
-    padding: 20, 
+  card: {
+    width: '47%',
+    aspectRatio: 1,
+    borderRadius: 20,
+    padding: 20,
     justifyContent: 'space-between',
     shadowColor: "#000", shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 8
   },
   iconCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
-  cardTitle: { fontSize: 17, fontWeight: '600', color: '#000' }
+  cardTitle: { fontSize: 17, fontWeight: '600' }
 });

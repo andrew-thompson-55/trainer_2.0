@@ -1,12 +1,11 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import { useTheme } from '@infra/theme';
+import { pkg } from '@infra/package';
 
-const Colors = {
-  light: { tint: '#2f95dc' },
-  dark: { tint: '#fff' },
-};
+const { strings } = pkg;
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof Ionicons>['name'];
@@ -16,20 +15,20 @@ function TabBarIcon(props: {
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { colors } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: colors.primary,
         headerShown: false,
       }}>
-      
+
       {/* 1. HOME (The New Dashboard) */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: strings['tabs.home'],
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} />
           ),
@@ -40,7 +39,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="plan"
         options={{
-          title: 'Plan',
+          title: strings['tabs.plan'],
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'list' : 'list-outline'} color={color} />
           ),
@@ -50,7 +49,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendar',
+          title: strings['tabs.calendar'],
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'calendar' : 'calendar-outline'} color={color} />
           ),
@@ -60,7 +59,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="coach"
         options={{
-          title: 'Coach',
+          title: strings['tabs.coach'],
           href: Platform.OS === 'web' ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'chatbubbles' : 'chatbubbles-outline'} color={color} />
@@ -70,7 +69,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="tracker"
         options={{
-          title: 'Check-in',
+          title: strings['tabs.checkIn'],
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'checkmark-circle' : 'checkmark-circle-outline'} color={color} />
           ),
@@ -79,7 +78,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: strings['tabs.settings'],
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'settings' : 'settings-outline'} color={color} />
           ),

@@ -6,6 +6,7 @@ import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@infra/auth/auth-provider';
 import { authFetch } from '@infra/fetch/auth-fetch';
+import { STORAGE_KEYS } from '@infra/storage/keys';
 
 interface UseSettingsReturn {
   loading: boolean;
@@ -28,8 +29,8 @@ export function useSettings(): UseSettingsReturn {
   useEffect(() => {
     async function loadPrefs() {
       try {
-        const graph = await AsyncStorage.getItem('chimera_use_graph_view');
-        const page = await AsyncStorage.getItem('chimera_default_route');
+        const graph = await AsyncStorage.getItem(STORAGE_KEYS.USE_GRAPH_VIEW);
+        const page = await AsyncStorage.getItem(STORAGE_KEYS.DEFAULT_ROUTE);
         if (graph) setUseGraphView(graph === 'true');
         if (page) setDefaultPage(page);
       } catch (e) {
@@ -41,8 +42,8 @@ export function useSettings(): UseSettingsReturn {
 
   const savePreferences = useCallback(async () => {
     try {
-      await AsyncStorage.setItem('chimera_use_graph_view', String(useGraphView));
-      await AsyncStorage.setItem('chimera_default_route', defaultPage);
+      await AsyncStorage.setItem(STORAGE_KEYS.USE_GRAPH_VIEW, String(useGraphView));
+      await AsyncStorage.setItem(STORAGE_KEYS.DEFAULT_ROUTE, defaultPage);
       Alert.alert('Saved', 'Your preferences have been saved.');
     } catch (e) {
       Alert.alert('Error', 'Failed to save preferences.');

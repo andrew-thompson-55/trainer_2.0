@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { useRouter, useSegments } from 'expo-router';
+import { STORAGE_KEYS } from '../storage/keys';
 
 // 👇 NATIVE LIBRARY (No more expo-auth-session)
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -89,8 +90,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         
         setUser(sessionUser);
-        await SecureStore.setItemAsync('chimera_token', backendData.token);
-        await AsyncStorage.setItem('chimera_user_info', JSON.stringify(backendData.user));
+        await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN, backendData.token);
+        await AsyncStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(backendData.user));
         
     } catch (e) {
         console.error(e);
@@ -116,8 +117,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const loadSession = async () => {
       try {
-        const token = await SecureStore.getItemAsync('chimera_token');
-        const userInfoStr = await AsyncStorage.getItem('chimera_user_info');
+        const token = await SecureStore.getItemAsync(STORAGE_KEYS.TOKEN);
+        const userInfoStr = await AsyncStorage.getItem(STORAGE_KEYS.USER_INFO);
         
         if (token && userInfoStr) {
             // Check if token is still valid
@@ -166,8 +167,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (e) {
         console.log("Error signing out of Google", e);
     }
-    await SecureStore.deleteItemAsync('chimera_token');
-    await AsyncStorage.removeItem('chimera_user_info');
+    await SecureStore.deleteItemAsync(STORAGE_KEYS.TOKEN);
+    await AsyncStorage.removeItem(STORAGE_KEYS.USER_INFO);
     setUser(null);
   };
 
@@ -185,7 +186,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         const updatedUser = { ...user, isNewUser: false };
         setUser(updatedUser);
-        await AsyncStorage.setItem('chimera_user_info', JSON.stringify(updatedUser));
+        await AsyncStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(updatedUser));
         router.replace('/(tabs)');
     } catch (e) {
         alert("Failed to save profile.");

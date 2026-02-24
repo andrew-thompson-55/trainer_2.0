@@ -1,0 +1,57 @@
+{
+  "metrics": [
+    {
+      "key": "readiness",
+      "question": "How ready do you feel to train?",
+      "options": [
+        { "value": 1, "emoji": "\ud83d\ude2b", "label": "Wiped" },
+        { "value": 2, "emoji": "\ud83d\ude15", "label": "Low" },
+        { "value": 3, "emoji": "\ud83d\ude10", "label": "OK" },
+        { "value": 4, "emoji": "\ud83d\ude0a", "label": "Good" },
+        { "value": 5, "emoji": "\ud83d\udd25", "label": "Ready" }
+      ]
+    },
+    {
+      "key": "soreness",
+      "question": "How sore are you?",
+      "options": [
+        { "value": 1, "emoji": "\ud83d\ude2d", "label": "Wrecked" },
+        { "value": 2, "emoji": "\ud83d\ude23", "label": "Sore" },
+        { "value": 3, "emoji": "\ud83d\ude10", "label": "Mild" },
+        { "value": 4, "emoji": "\ud83d\ude0c", "label": "Light" },
+        { "value": 5, "emoji": "\ud83d\udcaa", "label": "Fresh" }
+      ]
+    },
+    {
+      "key": "energy",
+      "question": "How is your energy level?",
+      "options": [
+        { "value": 1, "emoji": "\ud83e\udeab", "label": "Empty" },
+        { "value": 2, "emoji": "\ud83d\ude34", "label": "Tired" },
+        { "value": 3, "emoji": "\ud83d\ude10", "label": "OK" },
+        { "value": 4, "emoji": "\u26a1", "label": "Good" },
+        { "value": 5, "emoji": "\ud83d\ude80", "label": "Wired" }
+      ]
+    },
+    {
+      "key": "mood",
+      "question": "How is your mood?",
+      "options": [
+        { "value": 1, "emoji": "\ud83d\ude22", "label": "Bad" },
+        { "value": 2, "emoji": "\ud83d\ude1f", "label": "Meh" },
+        { "value": 3, "emoji": "\ud83d\ude10", "label": "OK" },
+        { "value": 4, "emoji": "\ud83d\ude04", "label": "Good" },
+        { "value": 5, "emoji": "\ud83e\udd29", "label": "Great" }
+      ]
+    }
+  ],
+  "rpeOptions": [
+    { "value": 1, "emoji": "\ud83d\ude34", "label": "Easy" },
+    { "value": 2, "emoji": "\ud83d\ude0a", "label": "Light" },
+    { "value": 3, "emoji": "\ud83d\ude24", "label": "Moderate" },
+    { "value": 4, "emoji": "\ud83e\udd75", "label": "Hard" },
+    { "value": 5, "emoji": "\ud83d\udc80", "label": "Max" }
+  ],
+  "scaleColorKeys": ["worst", "low", "mid", "good", "best"],
+  "rpeScaleColorKeys": ["best", "good", "mid", "low", "worst"]
+}

@@ -2,10 +2,11 @@ import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from db_client import supabase_admin
+from package_loader import get_config
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TIMEZONE = "America/New_York"
+DEFAULT_TIMEZONE = get_config()["defaultTimezone"]
 
 
 async def get_user_settings(user_id: str) -> dict:

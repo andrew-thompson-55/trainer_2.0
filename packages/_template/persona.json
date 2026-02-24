@@ -1,0 +1,18 @@
+{
+  "coachName": "TODO_COACH_NAME",
+  "coachDisplayName": "TODO Coach",
+  "coachGreeting": "TODO: Write a greeting message for the coach chat empty state.",
+  "coachGreetingEmoji": "",
+  "coachClearGreeting": "TODO: Write a shorter greeting for when chat is cleared.",
+  "coachAvatarUrl": "",
+  "chatPlaceholder": "Message TODO_COACH_NAME...",
+  "chatNoResponse": "No response",
+  "chatErrorMessage": "Something went wrong. Try again.",
+  "chatProcessError": "Sorry, I couldn't process that.",
+  "chatNetworkError": "Oops! Something went wrong. Try again?",
+  "agentReadyMessage": "Understood. I'm ready to coach.",
+  "agentNoResponseError": "I'm sorry, I couldn't generate a response. Please try again.",
+  "agentFallbackMessage": "I've completed the requested actions.",
+  "agentMaxIterationMessage": "I've processed your request but hit a complexity limit. Here's what I did so far.",
+  "defaultUserName": "Athlete"
+}

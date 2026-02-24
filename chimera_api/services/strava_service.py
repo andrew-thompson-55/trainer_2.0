@@ -5,6 +5,7 @@ import httpx
 from datetime import datetime, timedelta
 from db_client import supabase_admin
 from services.user_settings_service import get_user_settings, get_user_timezone
+from package_loader import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -12,21 +13,7 @@ STRAVA_AUTH_URL = "https://www.strava.com/oauth/token"
 STRAVA_API_URL = "https://www.strava.com/api/v3"
 
 # Map Strava sport types to internal activity types
-STRAVA_TYPE_MAP = {
-    "run": "run",
-    "trail run": "run",
-    "virtual run": "run",
-    "ride": "bike",
-    "virtual ride": "bike",
-    "gravel ride": "bike",
-    "mountain bike ride": "bike",
-    "e-bike ride": "bike",
-    "swim": "swim",
-    "open water swimming": "swim",
-    "weight training": "strength",
-    "workout": "strength",
-    "crossfit": "strength",
-}
+STRAVA_TYPE_MAP = get_config()["stravaTypeMap"]
 
 
 def _safe_int(value):

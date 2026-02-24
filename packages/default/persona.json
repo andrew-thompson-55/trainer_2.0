@@ -1,0 +1,18 @@
+{
+  "coachName": "Chimera",
+  "coachDisplayName": "Chimera Coach",
+  "coachGreeting": "Hey! I'm your AI coach. Ask me anything about your training plan, pacing strategy, or recovery.",
+  "coachGreetingEmoji": "\ud83c\udfc3\u200d\u2642\ufe0f",
+  "coachClearGreeting": "Hey! I'm your AI coach. Ask me anything!",
+  "coachAvatarUrl": "https://placeimg.com/140/140/any",
+  "chatPlaceholder": "Message Chimera...",
+  "chatNoResponse": "No response",
+  "chatErrorMessage": "Something went wrong. Try again.",
+  "chatProcessError": "Sorry, I couldn't process that.",
+  "chatNetworkError": "Oops! Something went wrong. Try again?",
+  "agentReadyMessage": "Understood. I'm ready to coach with full context of the athlete's training state.",
+  "agentNoResponseError": "I'm sorry, I couldn't generate a response. Please try again.",
+  "agentFallbackMessage": "I've completed the requested actions.",
+  "agentMaxIterationMessage": "I've processed your request but hit a complexity limit. Here's what I did so far.",
+  "defaultUserName": "Athlete"
+}

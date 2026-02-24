@@ -2,6 +2,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { StorageAdapter } from './storage';
+import { STORAGE_KEYS } from './keys';
 
 export const storageAdapter: StorageAdapter = {
   async getItem(key: string): Promise<string | null> {
@@ -19,6 +20,6 @@ export const storageAdapter: StorageAdapter = {
 
 // Define CACHE_KEYS directly to avoid circular dependency
 export const CACHE_KEYS = {
-  WORKOUTS: 'chimera_cache_workouts',
-  DASHBOARD: 'chimera_cache_dashboard',
+  WORKOUTS: STORAGE_KEYS.CACHE_WORKOUTS,
+  DASHBOARD: STORAGE_KEYS.CACHE_DASHBOARD,
 } as const;

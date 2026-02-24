@@ -1,6 +1,7 @@
 // Storage adapter for web (uses localStorage)
 
 import type { StorageAdapter } from './storage';
+import { STORAGE_KEYS } from './keys';
 
 export const storageAdapter: StorageAdapter = {
   async getItem(key: string): Promise<string | null> {
@@ -18,6 +19,6 @@ export const storageAdapter: StorageAdapter = {
 
 // Define CACHE_KEYS directly to avoid circular dependency on web
 export const CACHE_KEYS = {
-  WORKOUTS: 'chimera_cache_workouts',
-  DASHBOARD: 'chimera_cache_dashboard',
+  WORKOUTS: STORAGE_KEYS.CACHE_WORKOUTS,
+  DASHBOARD: STORAGE_KEYS.CACHE_DASHBOARD,
 } as const;

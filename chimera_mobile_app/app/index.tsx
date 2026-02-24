@@ -4,6 +4,7 @@ import { Redirect } from 'expo-router';
 import { useAuth } from '@infra/auth/auth-provider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../theme';
+import { STORAGE_KEYS } from '../src/infrastructure/storage/keys';
 
 export default function Index() {
   const { user, isLoading: authLoading } = useAuth();
@@ -13,7 +14,7 @@ export default function Index() {
   useEffect(() => {
     async function checkRoute() {
         try {
-            const savedRoute = await AsyncStorage.getItem('chimera_default_route');
+            const savedRoute = await AsyncStorage.getItem(STORAGE_KEYS.DEFAULT_ROUTE);
             setRedirectRoute(savedRoute || '/(tabs)'); // Default to Home if nothing saved
         } catch (e) {
             setRedirectRoute('/(tabs)');

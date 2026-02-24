@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 import { API_BASE } from '../fetch/config';
+import { STORAGE_KEYS } from '../storage/keys';
 
 // 🛑 REPLACE WITH YOUR WEB CLIENT ID
 const WEB_CLIENT_ID = '247141696720-6upuejdua6clh49utvobf6a007pthgtd.apps.googleusercontent.com';
@@ -87,8 +88,8 @@ const AuthProviderInternal = ({ children }: { children: React.ReactNode }) => {
       };
 
       setUser(sessionUser);
-      localStorage.setItem('chimera_token', backendData.token);
-      localStorage.setItem('chimera_user_info', JSON.stringify(backendData.user));
+      localStorage.setItem(STORAGE_KEYS.TOKEN, backendData.token);
+      localStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(backendData.user));
 
     } catch (e) {
       console.error(e);
@@ -114,8 +115,8 @@ const AuthProviderInternal = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const loadSession = async () => {
       try {
-        const token = localStorage.getItem('chimera_token');
-        const userInfoStr = localStorage.getItem('chimera_user_info');
+        const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+        const userInfoStr = localStorage.getItem(STORAGE_KEYS.USER_INFO);
 
         if (token && userInfoStr) {
           // Check if token is still valid
@@ -155,8 +156,8 @@ const AuthProviderInternal = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     // No need to sign out from Google on web - just clear local storage
-    localStorage.removeItem('chimera_token');
-    localStorage.removeItem('chimera_user_info');
+    localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER_INFO);
     setUser(null);
   };
 
@@ -174,7 +175,7 @@ const AuthProviderInternal = ({ children }: { children: React.ReactNode }) => {
 
       const updatedUser = { ...user, isNewUser: false };
       setUser(updatedUser);
-      localStorage.setItem('chimera_user_info', JSON.stringify(updatedUser));
+      localStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(updatedUser));
       router.replace('/(tabs)');
     } catch (e) {
       alert("Failed to save profile.");

@@ -4,8 +4,11 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import type { WorkoutCreate } from '@domain/types';
+import { pkg } from '@infra/package';
 
-export const ACTIVITY_TYPES = ['run', 'bike', 'swim', 'strength', 'other'] as const;
+const { config, strings } = pkg;
+
+export const ACTIVITY_TYPES = config.activityTypes;
 
 interface WorkoutFormValues {
   title: string;
@@ -52,7 +55,7 @@ export function useWorkoutForm({
 }: UseWorkoutFormOptions): UseWorkoutFormReturn {
   // Form state
   const [title, setTitle] = useState(initialValues?.title || '');
-  const [type, setType] = useState(initialValues?.type || 'run');
+  const [type, setType] = useState(initialValues?.type || config.defaultActivityType);
   const [date, setDate] = useState(initialValues?.date || new Date());
   const [duration, setDuration] = useState(initialValues?.duration || '60');
   const [description, setDescription] = useState(initialValues?.description || '');
@@ -64,7 +67,7 @@ export function useWorkoutForm({
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      Alert.alert('Missing Info', 'Please enter a workout title.');
+      Alert.alert(strings['workout.missingTitle'], strings['workout.missingTitleMessage']);
       return;
     }
 
@@ -87,7 +90,7 @@ export function useWorkoutForm({
       await onSubmit(payload);
       // Don't turn off saving - parent usually navigates away
     } catch (e) {
-      Alert.alert('Error', 'Could not save.');
+      Alert.alert(strings['workout.saveError'], strings['workout.saveErrorMessage']);
       setSaving(false);
     }
   };

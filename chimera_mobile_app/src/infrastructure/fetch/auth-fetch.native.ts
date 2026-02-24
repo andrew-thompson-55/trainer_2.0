@@ -1,13 +1,14 @@
 // authFetch.ts - Authenticated fetch wrapper (NATIVE VERSION)
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE } from './config';
+import { STORAGE_KEYS } from '../storage/keys';
 
 export async function authFetch(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
   // Use SecureStore for native platforms
-  const token = await SecureStore.getItemAsync('chimera_token');
+  const token = await SecureStore.getItemAsync(STORAGE_KEYS.TOKEN);
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',

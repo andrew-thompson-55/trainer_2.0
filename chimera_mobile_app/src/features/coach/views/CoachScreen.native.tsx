@@ -13,6 +13,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { authFetch } from '@infra/fetch/auth-fetch';
+import { useTheme } from '@infra/theme';
+import { pkg } from '@infra/package';
+
+const { persona } = pkg;
 
 type Message = {
   id: string;
@@ -21,6 +25,7 @@ type Message = {
 };
 
 export default function CoachScreen() {
+  const { coach } = useTheme();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,14 +49,14 @@ export default function CoachScreen() {
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        text: data.reply || 'No response',
+        text: data.reply || persona.chatNoResponse,
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch (e) {
       const errMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        text: 'Something went wrong. Try again.',
+        text: persona.chatErrorMessage,
       };
       setMessages((prev) => [...prev, errMsg]);
       console.error('Chat error:', e);
@@ -64,15 +69,17 @@ export default function CoachScreen() {
     <View
       style={[
         styles.messageBubble,
-        item.role === 'user' ? styles.userBubble : styles.aiBubble,
+        item.role === 'user'
+          ? [styles.userBubble, { backgroundColor: coach.userBubble }]
+          : [styles.aiBubble, { backgroundColor: coach.aiBubble }],
       ]}
     >
-      <Text style={styles.messageText}>{item.text}</Text>
+      <Text style={[styles.messageText, { color: coach.messageText }]}>{item.text}</Text>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: coach.background }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -87,19 +94,19 @@ export default function CoachScreen() {
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>Chimera Coach</Text>
-              <Text style={styles.emptySubtitle}>Ask me about your training</Text>
+              <Text style={[styles.emptyTitle, { color: coach.emptyTitle }]}>{persona.coachDisplayName}</Text>
+              <Text style={[styles.emptySubtitle, { color: coach.emptySubtitle }]}>{persona.coachGreeting}</Text>
             </View>
           }
         />
 
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, { borderTopColor: coach.inputBorder, backgroundColor: coach.background }]}>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, { backgroundColor: coach.inputBackground, color: coach.inputText }]}
             value={input}
             onChangeText={setInput}
-            placeholder="Message Chimera..."
-            placeholderTextColor="#6B7280"
+            placeholder={persona.chatPlaceholder}
+            placeholderTextColor={coach.placeholderText}
             multiline
             maxLength={2000}
             editable={!loading}
@@ -107,10 +114,10 @@ export default function CoachScreen() {
             blurOnSubmit={false}
           />
           {loading ? (
-            <ActivityIndicator size="small" color="#4A90E2" style={styles.sendBtn} />
+            <ActivityIndicator size="small" color={coach.accent} style={styles.sendBtn} />
           ) : (
             <TouchableOpacity onPress={sendMessage} style={styles.sendBtn} disabled={!input.trim()}>
-              <Ionicons name="send" size={22} color={input.trim() ? '#4A90E2' : '#3A3F47'} />
+              <Ionicons name="send" size={22} color={input.trim() ? coach.accent : coach.placeholderText} />
             </TouchableOpacity>
           )}
         </View>
@@ -122,7 +129,6 @@ export default function CoachScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0D0D0F',
     paddingTop: Platform.OS === 'android' ? 30 : 0,
   },
   flex: {
@@ -143,14 +149,11 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     alignSelf: 'flex-end',
-    backgroundColor: '#4A90E2',
   },
   aiBubble: {
     alignSelf: 'flex-start',
-    backgroundColor: '#1C1C1E',
   },
   messageText: {
-    color: '#E8EAED',
     fontSize: 15,
     lineHeight: 21,
   },
@@ -160,13 +163,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#1C1C1E',
-    backgroundColor: '#0D0D0F',
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#1C1C1E',
-    color: '#E8EAED',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -185,12 +184,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyTitle: {
-    color: '#E8EAED',
     fontSize: 22,
     fontWeight: '600',
   },
   emptySubtitle: {
-    color: '#6B7280',
     fontSize: 15,
     marginTop: 8,
   },

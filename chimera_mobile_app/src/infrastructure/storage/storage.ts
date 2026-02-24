@@ -1,5 +1,7 @@
 // Storage adapter interface - Platform-agnostic
 
+import { STORAGE_KEYS } from './keys';
+
 export interface StorageAdapter {
   getItem(key: string): Promise<string | null>;
   setItem(key: string, value: string): Promise<void>;
@@ -8,6 +10,6 @@ export interface StorageAdapter {
 
 // Centralized cache keys
 export const CACHE_KEYS = {
-  WORKOUTS: 'chimera_cache_workouts',
-  DASHBOARD: 'chimera_cache_dashboard',
+  WORKOUTS: STORAGE_KEYS.CACHE_WORKOUTS,
+  DASHBOARD: STORAGE_KEYS.CACHE_DASHBOARD,
 } as const;

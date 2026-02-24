@@ -6,6 +6,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { format, parseISO } from 'date-fns';
 import { Colors, Layout, Typography } from '../../../../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS } from '@infra/storage/keys';
 
 export default function CalendarScreen() {
   const router = useRouter(); 
@@ -77,7 +78,7 @@ export default function CalendarScreen() {
   const handleDayPress = async (day: any) => {
     setSelectedDate(day.dateString);
     // Save this date so Itinerary knows what to look at
-    await AsyncStorage.setItem('chimera_active_date', day.dateString);
+    await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_DATE, day.dateString);
   };
 
   return (
