@@ -56,6 +56,22 @@ async def get_user_profile(user_id: str) -> dict:
     return {}
 
 
+async def update_user_settings(user_id: str, updates: dict) -> dict:
+    """Upsert fields into the user_settings row for a given user."""
+    try:
+        updates["user_id"] = user_id
+        response = (
+            supabase_admin.table("user_settings")
+            .upsert(updates, on_conflict="user_id")
+            .execute()
+        )
+        if response.data:
+            return response.data[0]
+    except Exception as e:
+        logger.warning(f"Failed to update user settings: {e}")
+    return {}
+
+
 async def update_coach_notes(user_id: str, note: str) -> dict:
     """Append a coach note to user_settings.coach_notes."""
     settings = await get_user_settings(user_id)

@@ -111,3 +111,12 @@ class UserProfileUpdate(BaseModel):
     weekly_volume_target_hours: Optional[float] = None
     preferred_workout_time: Optional[str] = None
     injury_notes: Optional[str] = None
+
+
+class UserSettingsUpdate(BaseModel):
+    """User-facing settings stored in user_settings table"""
+    weight_unit: Optional[Literal['kg', 'lbs']] = None
+
+
+class UserSettingsResponse(BaseModel):
+    weight_unit: str = 'kg'

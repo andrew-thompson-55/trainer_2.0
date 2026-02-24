@@ -13,3 +13,9 @@ export interface ProfileUpdate {
   name?: string;
   timezone?: string;
 }
+
+export type WeightUnit = 'kg' | 'lbs';
+
+export interface UserSettings {
+  weight_unit: WeightUnit;
+}

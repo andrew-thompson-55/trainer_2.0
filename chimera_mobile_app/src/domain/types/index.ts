@@ -21,6 +21,8 @@ export type {
 export type {
   User,
   ProfileUpdate,
+  WeightUnit,
+  UserSettings,
 } from './user';
 
 export type {

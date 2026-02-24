@@ -1,7 +1,7 @@
 // User API - Pure functions for user profile operations
 
 import type { FetchFn } from './client';
-import type { User, ProfileUpdate } from '../types/user';
+import type { User, ProfileUpdate, UserSettings } from '../types/user';
 
 export async function getProfile(fetch: FetchFn): Promise<User> {
   const res = await fetch('/users/profile');
@@ -25,4 +25,22 @@ export async function updateProfile(
 export async function deleteAccount(fetch: FetchFn): Promise<void> {
   const res = await fetch('/users/account', { method: 'DELETE' });
   if (!res.ok) throw new Error(`Failed to delete account: ${res.status}`);
+}
+
+export async function getUserSettings(fetch: FetchFn): Promise<UserSettings> {
+  const res = await fetch('/users/settings');
+  if (!res.ok) return { weight_unit: 'kg' };
+  return res.json();
+}
+
+export async function updateUserSettings(
+  fetch: FetchFn,
+  data: Partial<UserSettings>
+): Promise<void> {
+  const res = await fetch('/users/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Failed to update settings: ${res.status}`);
 }

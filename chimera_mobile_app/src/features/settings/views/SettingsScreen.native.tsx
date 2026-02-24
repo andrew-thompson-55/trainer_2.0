@@ -7,12 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography } from '../../../../theme';
 import { useAuth } from '@infra/auth/auth-provider';
 import { authFetch } from '@infra/fetch/auth-fetch';
+import type { WeightUnit } from '@domain/types';
+import * as userApi from '@domain/api/user';
 
 export default function SettingsScreen() {
   const { signOut, user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [useGraphView, setUseGraphView] = useState(false);
   const [defaultPage, setDefaultPage] = useState('/(tabs)'); // Default to Home
+  const [weightUnit, setWeightUnitState] = useState<WeightUnit>('kg');
 
   // 1. HANDLE DEEP LINKS (Strava Redirect)
   const url = Linking.useURL();
@@ -39,6 +42,15 @@ export default function SettingsScreen() {
     AsyncStorage.getItem('chimera_default_route').then(val => {
        if (val) setDefaultPage(val);
     });
+
+    // Load weight unit from cache, then verify with API
+    AsyncStorage.getItem('chimera_weight_unit').then(val => {
+      if (val === 'kg' || val === 'lbs') setWeightUnitState(val);
+    });
+    userApi.getUserSettings(authFetch).then(settings => {
+      setWeightUnitState(settings.weight_unit);
+      AsyncStorage.setItem('chimera_weight_unit', settings.weight_unit);
+    }).catch(() => {/* use cached */});
   }, []);
 
   // 3. ACTIONS
@@ -50,6 +62,16 @@ export default function SettingsScreen() {
   const handleSetDefault = async (route: string) => {
       setDefaultPage(route);
       await AsyncStorage.setItem('chimera_default_route', route);
+  };
+
+  const handleSetWeightUnit = async (unit: WeightUnit) => {
+    setWeightUnitState(unit);
+    await AsyncStorage.setItem('chimera_weight_unit', unit);
+    try {
+      await userApi.updateUserSettings(authFetch, { weight_unit: unit });
+    } catch (e) {
+      console.log('Failed to sync weight unit:', e);
+    }
   };
 
   const exchangeStravaCode = async (code: string) => {
@@ -150,11 +172,33 @@ export default function SettingsScreen() {
                 <Ionicons name="bar-chart" size={24} color={Colors.primary} />
                 <Text style={styles.rowText}>Use Graph View</Text>
             </View>
-            <Switch 
-                value={useGraphView} 
+            <Switch
+                value={useGraphView}
                 onValueChange={toggleStatsView}
                 trackColor={{ false: '#C7C7CC', true: Colors.primary }}
             />
+        </View>
+
+        <View style={{ height: 12 }} />
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Ionicons name="barbell-outline" size={24} color={Colors.primary} />
+            <Text style={styles.rowText}>Weight Unit</Text>
+          </View>
+          <View style={styles.pillContainer}>
+            <TouchableOpacity
+              style={[styles.pill, weightUnit === 'kg' && styles.pillActive]}
+              onPress={() => handleSetWeightUnit('kg')}
+            >
+              <Text style={[styles.pillText, weightUnit === 'kg' && styles.pillTextActive]}>kg</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.pill, weightUnit === 'lbs' && styles.pillActive]}
+              onPress={() => handleSetWeightUnit('lbs')}
+            >
+              <Text style={[styles.pillText, weightUnit === 'lbs' && styles.pillTextActive]}>lbs</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={{ height: 24 }} />

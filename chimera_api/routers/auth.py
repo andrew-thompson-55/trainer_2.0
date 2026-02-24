@@ -6,7 +6,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from db_client import supabase_admin
-from schemas import ProfileUpdate, GoogleLoginRequest
+from schemas import ProfileUpdate, GoogleLoginRequest, UserSettingsUpdate, UserSettingsResponse
+from services import user_settings_service
 from dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -146,4 +147,20 @@ def delete_my_account(user_id: str = Depends(get_current_user)):
 def update_profile(data: ProfileUpdate, user_id: str = Depends(get_current_user)):
     update_dict = data.model_dump(exclude_unset=True)
     supabase_admin.table("users").update(update_dict).eq("id", user_id).execute()
+    return {"status": "updated"}
+
+
+@router.get("/users/settings", response_model=UserSettingsResponse)
+async def get_user_settings_route(user_id: str = Depends(get_current_user)):
+    settings = await user_settings_service.get_user_settings(user_id)
+    return UserSettingsResponse(weight_unit=settings.get("weight_unit", "kg"))
+
+
+@router.put("/users/settings")
+async def update_user_settings_route(
+    data: UserSettingsUpdate,
+    user_id: str = Depends(get_current_user)
+):
+    updates = data.model_dump(exclude_unset=True)
+    await user_settings_service.update_user_settings(user_id, updates)
     return {"status": "updated"}
