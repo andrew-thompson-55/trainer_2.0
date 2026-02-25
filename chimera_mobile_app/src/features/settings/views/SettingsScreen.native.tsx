@@ -398,8 +398,8 @@ export default function SettingsScreen() {
           <View style={styles.pillContainer}>
             {[
               { route: '/(tabs)', label: strings['tabs.home'] },
-              { route: '/(tabs)/itinerary', label: strings['tabs.plan'] },
-              { route: '/(tabs)/chat', label: strings['tabs.coach'] },
+              { route: '/(tabs)/plan', label: strings['tabs.plan'] },
+              { route: '/(tabs)/coach', label: strings['tabs.coach'] },
             ].map(({ route, label }) => (
               <TouchableOpacity
                 key={route}

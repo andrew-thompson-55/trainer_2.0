@@ -12,11 +12,13 @@ export default function Index() {
   const [redirectRoute, setRedirectRoute] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
+  const VALID_ROUTES = ['/(tabs)', '/(tabs)/plan', '/(tabs)/coach', '/(tabs)/calendar', '/(tabs)/tracker', '/(tabs)/settings'];
+
   useEffect(() => {
     async function checkRoute() {
         try {
             const savedRoute = await AsyncStorage.getItem(STORAGE_KEYS.DEFAULT_ROUTE);
-            setRedirectRoute(savedRoute || '/(tabs)'); // Default to Home if nothing saved
+            setRedirectRoute(savedRoute && VALID_ROUTES.includes(savedRoute) ? savedRoute : '/(tabs)');
         } catch (e) {
             setRedirectRoute('/(tabs)');
         } finally {
