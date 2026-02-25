@@ -1,50 +1,19 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, View, Text, SectionList, SafeAreaView, TouchableOpacity, RefreshControl } from 'react-native';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Layout, Typography, useTheme } from '@infra/theme';
 import { usePlan } from '@features/plan';
 import { pkg } from '@infra/package';
-import { STORAGE_KEYS } from '@infra/storage/keys';
 
 const { strings } = pkg;
 
 export default function ItineraryScreen() {
   const router = useRouter();
-  const sectionListRef = useRef<SectionList>(null);
   const { colors } = useTheme();
 
-  const { sections, refreshing, onRefresh, toggleStatus } = usePlan();
-
-  // Auto-scroll to today's date
-  useEffect(() => {
-    if (sections.length === 0) return;
-
-    const scroll = async () => {
-        try {
-            let targetDate = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_DATE);
-            const todayStr = format(new Date(), 'yyyy-MM-dd');
-            if (!targetDate) targetDate = todayStr;
-
-            let index = sections.findIndex((s) => s.title === targetDate);
-            if (index === -1) index = sections.findIndex((s) => s.title >= targetDate!);
-
-            if (index !== -1 && sectionListRef.current) {
-                setTimeout(() => {
-                    sectionListRef.current?.scrollToLocation({
-                        sectionIndex: index,
-                        itemIndex: 0,
-                        viewOffset: 80,
-                        animated: true
-                    });
-                }, 300);
-            }
-        } catch (e) { console.log("Scroll Error", e); }
-    };
-    scroll();
-  }, [sections]);
+  const { sections, showPast, setShowPast, pastCount, refreshing, onRefresh, toggleStatus } = usePlan();
 
   // --- HEADER RENDERER ---
   const renderSectionHeader = ({ section: { title, data } }: any) => {
@@ -108,6 +77,40 @@ export default function ItineraryScreen() {
     </TouchableOpacity>
   );
 
+  // "Show past workouts" banner at top of list
+  const ListHeader = () => {
+    if (showPast || pastCount === 0) return null;
+    return (
+      <TouchableOpacity
+        style={[styles.showPastButton, { borderColor: colors.border }]}
+        onPress={() => setShowPast(true)}
+      >
+        <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+        <Text style={[styles.showPastText, { color: colors.textSecondary }]}>
+          Show {pastCount} past workout{pastCount !== 1 ? 's' : ''}
+        </Text>
+        <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+      </TouchableOpacity>
+    );
+  };
+
+  // "Hide past" banner when past workouts are visible
+  const PastHeader = () => {
+    if (!showPast) return null;
+    return (
+      <TouchableOpacity
+        style={[styles.showPastButton, { borderColor: colors.border }]}
+        onPress={() => setShowPast(false)}
+      >
+        <Ionicons name="chevron-up" size={16} color={colors.textSecondary} />
+        <Text style={[styles.showPastText, { color: colors.textSecondary }]}>
+          Hide past workouts
+        </Text>
+        <Ionicons name="chevron-up" size={16} color={colors.textSecondary} />
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { backgroundColor: colors.header, borderBottomColor: colors.border }]}>
@@ -115,18 +118,17 @@ export default function ItineraryScreen() {
       </View>
 
       <SectionList
-        ref={sectionListRef}
         sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         renderSectionHeader={renderSectionHeader}
         contentContainerStyle={styles.content}
         stickySectionHeadersEnabled={false}
+        ListHeaderComponent={showPast ? PastHeader : ListHeader}
         ListEmptyComponent={<Text style={[styles.emptyText, { color: colors.textSecondary }]}>{strings['plan.empty']}</Text>}
         refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }
-        onScrollToIndexFailed={() => {}}
       />
 
       <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => router.push('/add_workout')}>
@@ -180,6 +182,24 @@ const styles = StyleSheet.create({
       paddingVertical: 4,
       borderRadius: 4,
       overflow: 'hidden'
+  },
+
+  // Show past button
+  showPastButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    marginTop: 8,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderRadius: 8,
+    borderStyle: 'dashed',
+    gap: 6,
+  },
+  showPastText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
 
   card: { flexDirection: 'row', marginBottom: Layout.spacing.m },

@@ -1,8 +1,8 @@
 // usePlan - Business logic for training plan screen
 // Extracted from app/(tabs)/itinerary.tsx
 
-import { useState, useCallback } from 'react';
-import { format, parseISO } from 'date-fns';
+import { useState, useCallback, useMemo } from 'react';
+import { format, parseISO, subDays } from 'date-fns';
 import { useFocusEffect } from 'expo-router';
 import { Alert } from 'react-native';
 import { api } from '../../../../services/api';
@@ -15,6 +15,10 @@ interface PlanSection {
 
 interface UsePlanReturn {
   sections: PlanSection[];
+  allSections: PlanSection[];
+  showPast: boolean;
+  setShowPast: (v: boolean) => void;
+  pastCount: number;
   refreshing: boolean;
   loadData: (isRefresh?: boolean) => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -22,7 +26,8 @@ interface UsePlanReturn {
 }
 
 export function usePlan(): UsePlanReturn {
-  const [sections, setSections] = useState<PlanSection[]>([]);
+  const [allSections, setAllSections] = useState<PlanSection[]>([]);
+  const [showPast, setShowPast] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const processAndSetSections = (data: Workout[]) => {
@@ -48,8 +53,22 @@ export function usePlan(): UsePlanReturn {
       data: grouped[date]
     }));
 
-    setSections(sectionsArray);
+    setAllSections(sectionsArray);
   };
+
+  // Filter: today + future only (default), or all when showPast is true
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  const sections = useMemo(() => {
+    if (showPast) return allSections;
+    return allSections.filter(s => s.title >= todayStr);
+  }, [allSections, showPast, todayStr]);
+
+  const pastCount = useMemo(() => {
+    return allSections.filter(s => s.title < todayStr).reduce(
+      (sum, s) => sum + Math.max(s.data.length, 0), 0
+    );
+  }, [allSections, todayStr]);
 
   const loadData = useCallback(async (isRefresh = false) => {
     // Load from cache first (if not refreshing)
@@ -107,6 +126,10 @@ export function usePlan(): UsePlanReturn {
 
   return {
     sections,
+    allSections,
+    showPast,
+    setShowPast,
+    pastCount,
     refreshing,
     loadData,
     onRefresh,

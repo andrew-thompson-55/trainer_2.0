@@ -20,6 +20,9 @@ export default function RootLayout() {
         <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="add_workout" options={{ headerShown: false }} />
+            <Stack.Screen name="edit_workout" options={{ headerShown: false }} />
+            <Stack.Screen name="workout_details" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
           <StatusBar style="auto" />
