@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '@infra/theme';
 import { EmojiOption } from './EmojiOption';
 import type { MetricConfig } from '../constants';
 
@@ -10,9 +11,10 @@ interface Props {
 }
 
 export function MetricRow({ metric, selectedValue, onSelect }: Props) {
+  const { colors } = useTheme();
   return (
     <View style={styles.container}>
-      <Text style={styles.question}>{metric.question}</Text>
+      <Text style={[styles.question, { color: colors.textPrimary }]}>{metric.question}</Text>
       <View style={styles.options}>
         {metric.options.map((option) => (
           <EmojiOption
@@ -34,7 +36,7 @@ const styles = StyleSheet.create({
   question: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#000',
+    // color set dynamically via useTheme
     marginBottom: 10,
   },
   options: {

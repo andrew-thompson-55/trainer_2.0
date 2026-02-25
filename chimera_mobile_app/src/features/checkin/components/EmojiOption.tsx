@@ -1,5 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, Animated } from 'react-native';
+import { useTheme } from '@infra/theme';
 import { Layout } from '../../../../theme';
 import type { MetricOption } from '../constants';
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function EmojiOption({ option, selected, onPress }: Props) {
+  const { colors } = useTheme();
   return (
     <TouchableOpacity
       style={[
@@ -20,7 +22,7 @@ export function EmojiOption({ option, selected, onPress }: Props) {
       activeOpacity={0.7}
     >
       <Text style={styles.emoji}>{option.emoji}</Text>
-      <Text style={[styles.label, selected && { color: option.color, fontWeight: '600' }]}>
+      <Text style={[styles.label, { color: colors.textSecondary }, selected && { color: option.color, fontWeight: '600' }]}>
         {option.label}
       </Text>
     </TouchableOpacity>
@@ -45,7 +47,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 11,
-    color: '#8E8E93',
+    // color set dynamically via useTheme
     fontWeight: '500',
   },
 });
