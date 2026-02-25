@@ -12,7 +12,8 @@
       "Bash(python3:*)",
       "Bash(npx expo start:*)",
       "Bash(npx tsc:*)",
-      "Bash(python -c:*)"
+      "Bash(python -c:*)",
+      "Bash(cd:*)"
     ]
   }
 }

@@ -10,6 +10,7 @@ from html import escape
 # Import services if you need to use the webhook handler,
 # or you can move that logic here later.
 from services import strava_service
+from services.analytics_service import track as analytics_track
 from schemas import StravaWebhookEvent, StravaChallengeResponse, StravaAuthCode
 from dependencies import get_current_user
 
@@ -143,6 +144,11 @@ async def webhook_strava_validation(
 @router.post("/webhooks/strava", status_code=200)
 async def webhook_strava_event(payload: StravaWebhookEvent):
     logger.info(f"Received Strava Event: {payload}")
+    analytics_track(str(payload.owner_id), "strava_webhook_received", {
+        "object_type": payload.object_type,
+        "aspect_type": payload.aspect_type,
+        "object_id": payload.object_id,
+    })
     if payload.object_type == "activity" and payload.aspect_type in (
         "create",
         "update",

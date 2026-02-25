@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { useTheme } from '@infra/theme';
 import { pkg } from '@infra/package';
+import { useAnalytics } from '@infra/analytics';
 
 const { strings } = pkg;
 
@@ -16,12 +17,18 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const { track } = useAnalytics();
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         headerShown: false,
+      }}
+      screenListeners={{
+        tabPress: (e) => {
+          track('tab_switched', { tab: e.target?.split('-')[0] });
+        },
       }}>
 
       {/* 1. HOME (The New Dashboard) */}

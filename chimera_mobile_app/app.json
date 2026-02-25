@@ -58,7 +58,8 @@
       "eas": {
         "projectId": "1ba814af-2dd7-4a59-bcb1-1cc0e1b09886"
       },
-      "EXPO_PUBLIC_API_BASE": "https://trainer-2-0.onrender.com/v1"
+      "EXPO_PUBLIC_API_BASE": "https://trainer-2-0.onrender.com/v1",
+      "EXPO_PUBLIC_POSTHOG_KEY": "phc_EiHLth7ePP9fv1QgTAaptGZ7z6BqUbMqLjMjUaiyMl6"
     }
   }
 }

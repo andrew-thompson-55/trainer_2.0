@@ -2,6 +2,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE } from './config';
 import { STORAGE_KEYS } from '../storage/keys';
+import { captureEvent } from '../analytics/capture';
 
 export async function authFetch(
   endpoint: string,
@@ -19,8 +20,14 @@ export async function authFetch(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  return fetch(`${API_BASE}${endpoint}`, {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
   });
+
+  if (!response.ok) {
+    captureEvent('api_error', { endpoint, status: response.status });
+  }
+
+  return response;
 }

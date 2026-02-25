@@ -5,6 +5,7 @@ import httpx
 from datetime import datetime, timedelta
 from db_client import supabase_admin
 from services.user_settings_service import get_user_settings, get_user_timezone
+from services.analytics_service import track as analytics_track
 from package_loader import get_config
 
 logger = logging.getLogger(__name__)
@@ -152,6 +153,14 @@ async def handle_webhook_event(
 
     except Exception as e:
         logger.error(f"Strava webhook error ({aspect_type} {object_id}): {e}")
+        try:
+            analytics_track(user_id, "strava_sync_failed", {
+                "activity_id": object_id,
+                "aspect_type": aspect_type,
+                "error": str(e),
+            })
+        except Exception:
+            pass
 
 
 async def _handle_activity_create(user_id: str, activity_id: int):
@@ -168,6 +177,11 @@ async def _handle_activity_create(user_id: str, activity_id: int):
     )
 
     await _auto_link_to_plan(user_id, result.data[0]["id"], data)
+
+    analytics_track(user_id, "strava_activity_synced", {
+        "activity_id": activity_id,
+        "activity_type": activity_record["activity_type"],
+    })
 
     # Check if workout update reminder should be sent
     await _check_workout_update_reminder(user_id, data)

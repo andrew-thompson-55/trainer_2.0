@@ -6,6 +6,7 @@ import { STORAGE_KEYS } from '../storage/keys';
 
 // 👇 NATIVE LIBRARY (No more expo-auth-session)
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { usePostHog } from 'posthog-react-native';
 import { API_BASE } from '../fetch/config';
 
 // 🛑 REPLACE WITH YOUR WEB CLIENT ID
@@ -38,6 +39,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const segments = useSegments();
+  const posthog = usePostHog();
 
   // 1. Configure Native Google Sign In
   useEffect(() => {
@@ -90,6 +92,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         
         setUser(sessionUser);
+        posthog?.identify(sessionUser.id, { email: sessionUser.email, name: sessionUser.name });
         await SecureStore.setItemAsync(STORAGE_KEYS.TOKEN, backendData.token);
         await AsyncStorage.setItem(STORAGE_KEYS.USER_INFO, JSON.stringify(backendData.user));
         
@@ -125,7 +128,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const isValid = await verifyToken(token);
             if (isValid) {
                 const userInfo = JSON.parse(userInfoStr);
-                setUser({ ...userInfo, token, isNewUser: false }); 
+                setUser({ ...userInfo, token, isNewUser: false });
+                posthog?.identify(userInfo.id, { email: userInfo.email, name: userInfo.name });
             } else {
                 await signOut();
             }
@@ -167,6 +171,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (e) {
         console.log("Error signing out of Google", e);
     }
+    posthog?.reset();
     await SecureStore.deleteItemAsync(STORAGE_KEYS.TOKEN);
     await AsyncStorage.removeItem(STORAGE_KEYS.USER_INFO);
     setUser(null);

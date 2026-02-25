@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@infra/auth/auth-provider';
 import { authFetch } from '@infra/fetch/auth-fetch';
 import { STORAGE_KEYS } from '@infra/storage/keys';
+import { useAnalytics } from '@infra/analytics';
 
 interface UseSettingsReturn {
   loading: boolean;
@@ -21,6 +22,7 @@ interface UseSettingsReturn {
 
 export function useSettings(): UseSettingsReturn {
   const { signOut, user } = useAuth();
+  const { track } = useAnalytics();
   const [loading, setLoading] = useState(false);
   const [useGraphView, setUseGraphView] = useState(false);
   const [defaultPage, setDefaultPage] = useState('/(tabs)');
@@ -44,6 +46,7 @@ export function useSettings(): UseSettingsReturn {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.USE_GRAPH_VIEW, String(useGraphView));
       await AsyncStorage.setItem(STORAGE_KEYS.DEFAULT_ROUTE, defaultPage);
+      track('setting_changed', { useGraphView, defaultPage });
       Alert.alert('Saved', 'Your preferences have been saved.');
     } catch (e) {
       Alert.alert('Error', 'Failed to save preferences.');
@@ -59,6 +62,7 @@ export function useSettings(): UseSettingsReturn {
       });
 
       if (response.ok) {
+        track('strava_connected');
         Alert.alert('Success', 'Strava connected!');
       } else {
         throw new Error('Connection failed');

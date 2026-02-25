@@ -4,6 +4,7 @@
 import { useState, useCallback } from 'react';
 import { authFetch } from '@infra/fetch/auth-fetch';
 import { pkg } from '@infra/package';
+import { useAnalytics } from '@infra/analytics';
 
 const { persona } = pkg;
 
@@ -26,6 +27,7 @@ interface UseCoachReturn {
 }
 
 export function useCoach(): UseCoachReturn {
+  const { track } = useAnalytics();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       _id: 1,
@@ -56,6 +58,8 @@ export function useCoach(): UseCoachReturn {
 
     setMessages(prev => [userMessage, ...prev]);
     setSending(true);
+    track('coach_message_sent', { message_length: text.trim().length });
+    const sendStart = Date.now();
 
     try {
       const response = await authFetch('/chat', {
@@ -64,6 +68,7 @@ export function useCoach(): UseCoachReturn {
       });
 
       const data = await response.json();
+      track('coach_response_received', { response_time_ms: Date.now() - sendStart });
       const aiReply = data.reply || persona.chatProcessError;
 
       const aiMessage: ChatMessage = {

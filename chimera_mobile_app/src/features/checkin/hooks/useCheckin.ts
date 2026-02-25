@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authFetch } from '@infra/fetch/auth-fetch';
 import { STORAGE_KEYS } from '@infra/storage/keys';
+import { useAnalytics } from '@infra/analytics';
 import * as checkinApi from '@domain/api/checkin';
 import type { CheckinStatus, PendingWorkout, MorningCheckin, WorkoutUpdate } from '@domain/types/checkin';
 
@@ -10,6 +11,7 @@ type StackItem =
   | { type: 'workout_update'; workout: PendingWorkout };
 
 export function useCheckin() {
+  const { track } = useAnalytics();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<CheckinStatus | null>(null);
@@ -66,6 +68,9 @@ export function useCheckin() {
       }
 
       setStack(newStack);
+      if (newStack.length > 0) {
+        track('checkin_started', { items: newStack.length });
+      }
     } catch (e) {
       console.log('Failed to fetch checkin status:', e);
     } finally {
@@ -78,6 +83,7 @@ export function useCheckin() {
   }, [fetchStatus]);
 
   const handleSelect = (key: string, value: number) => {
+    track('checkin_metric_selected', { metric: key, value });
     setSelections((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -96,6 +102,7 @@ export function useCheckin() {
       }
 
       await checkinApi.saveMorningCheckin(authFetch, today, data);
+      track('checkin_saved', { date: today });
 
       // Pop morning checkin from stack
       setStack((prev) => prev.filter((item) => item.type !== 'morning_checkin'));
@@ -114,6 +121,7 @@ export function useCheckin() {
     setSaving(true);
     try {
       await checkinApi.saveWorkoutUpdate(authFetch, stravaActivityId, { session_rpe: rpe });
+      track('workout_update_saved', { strava_activity_id: stravaActivityId, rpe });
 
       // Pop this workout from stack
       setStack((prev) =>

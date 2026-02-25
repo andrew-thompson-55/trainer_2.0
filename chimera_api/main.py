@@ -23,6 +23,7 @@ from dependencies import get_current_user
 
 from routers import auth, strava
 from package_loader import get_config
+from services.analytics_service import track as analytics_track, shutdown as analytics_shutdown
 
 load_dotenv()
 
@@ -58,6 +59,11 @@ if api_key:
     genai.configure(api_key=api_key.strip())
 
 
+@app.on_event("shutdown")
+def on_shutdown():
+    analytics_shutdown()
+
+
 @app.get("/")
 def health_check():
     return {"status": get_config()["healthCheckMessage"]}
@@ -73,6 +79,7 @@ async def chat_with_gemini(
         return {"reply": result["reply"]}
     except Exception as e:
         logger.error(f"AI Error: {e}")
+        analytics_track(user_id, "coach_error", {"error": str(e)})
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -133,9 +140,11 @@ async def save_morning_checkin(
     data: MorningCheckinCreate,
     user_id: str = Depends(get_current_user),
 ):
-    return await daily_checkin_service.upsert_morning_checkin(
+    result = await daily_checkin_service.upsert_morning_checkin(
         user_id, date_str, data.model_dump(exclude_unset=True)
     )
+    analytics_track(user_id, "checkin_persisted", {"checkin_type": "morning", "date": date_str})
+    return result
 
 
 @app.put("/v1/checkin/workout/{strava_activity_id}", tags=["Check-in"])
@@ -144,9 +153,11 @@ async def save_workout_update(
     data: WorkoutUpdateCreate,
     user_id: str = Depends(get_current_user),
 ):
-    return await daily_checkin_service.upsert_workout_update(
+    result = await daily_checkin_service.upsert_workout_update(
         user_id, strava_activity_id, data.model_dump()
     )
+    analytics_track(user_id, "checkin_persisted", {"checkin_type": "workout_update", "strava_activity_id": strava_activity_id})
+    return result
 
 
 @app.get("/v1/checkin/streak", tags=["Check-in"])

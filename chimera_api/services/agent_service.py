@@ -1,9 +1,11 @@
 import os
+import time
 import logging
 import google.generativeai as genai
 from db_client import supabase_admin
 from ai_tools import tools_schema, execute_tool_call
 from services.context_service import build_agent_context, format_context_for_prompt
+from services.analytics_service import track as analytics_track
 from package_loader import get_persona, get_system_prompt
 
 logger = logging.getLogger(__name__)
@@ -58,6 +60,7 @@ async def run_agent(user_id: str, user_message: str) -> dict:
     Returns: {"reply": str, "tools_used": list, "iterations": int}
     """
     tools_used = []
+    start_time = time.time()
 
     # --- PLAN PHASE ---
     # 1. Build training context
@@ -145,6 +148,14 @@ async def run_agent(user_id: str, user_message: str) -> dict:
             ).execute()
         except Exception as e:
             logger.warning(f"Chat log failed: {e}")
+
+    response_time_ms = int((time.time() - start_time) * 1000)
+    analytics_track(user_id, "coach_response_generated", {
+        "model": "gemini-2.5-flash",
+        "tools_used": tools_used,
+        "iterations": iteration,
+        "response_time_ms": response_time_ms,
+    })
 
     return {
         "reply": final_reply,
