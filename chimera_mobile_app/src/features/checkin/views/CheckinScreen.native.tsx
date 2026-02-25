@@ -1,6 +1,6 @@
 import React from 'react';
 import { SafeAreaView, ScrollView, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import { Colors, Typography } from '../../../../theme';
+import { useTheme, Typography } from '@infra/theme';
 import { useCheckin } from '../hooks/useCheckin';
 import { MorningCheckin } from '../components/MorningCheckin';
 import { WorkoutUpdateCard } from '../components/WorkoutUpdateCard';
@@ -8,6 +8,7 @@ import { StreakBadge } from '../components/StreakBadge';
 import { AllSetSummary } from '../components/AllSetSummary';
 
 export default function CheckinScreen() {
+  const { colors } = useTheme();
   const {
     loading,
     saving,
@@ -26,10 +27,10 @@ export default function CheckinScreen() {
   } = useCheckin();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.header, borderBottomColor: colors.border }]}>
         <View style={styles.headerRow}>
-          <Text style={styles.titleText}>Check-in</Text>
+          <Text style={[styles.titleText, { color: colors.textPrimary }]}>Check-in</Text>
           {status && <StreakBadge streak={status.streak} />}
         </View>
       </View>
@@ -37,8 +38,8 @@ export default function CheckinScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Loading...</Text>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
           </View>
         ) : allDone ? (
           <AllSetSummary
@@ -73,20 +74,20 @@ export default function CheckinScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   header: {
     padding: 20,
-    backgroundColor: Colors.header,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  titleText: Typography.header,
+  titleText: {
+    fontSize: 34,
+    fontWeight: 'bold',
+  },
   content: {
     padding: 20,
   },
@@ -97,7 +98,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: Colors.textSecondary,
     fontSize: 15,
   },
 });

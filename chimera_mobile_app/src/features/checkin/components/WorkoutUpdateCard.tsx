@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors, Layout } from '../../../../theme';
+import { useTheme } from '@infra/theme';
+import { Layout } from '../../../../theme';
 import { RPE_OPTIONS } from '../constants';
 import { EmojiOption } from './EmojiOption';
 import type { PendingWorkout } from '../../../domain/types/checkin';
@@ -27,6 +28,7 @@ function formatDistance(meters: number | null): string {
 }
 
 export function WorkoutUpdateCard({ workout, onSave, saving }: Props) {
+  const { colors } = useTheme();
   const [selectedRpe, setSelectedRpe] = useState<number | null>(null);
 
   const details = [
@@ -37,16 +39,16 @@ export function WorkoutUpdateCard({ workout, onSave, saving }: Props) {
   const activityLabel = workout.activity_type.charAt(0).toUpperCase() + workout.activity_type.slice(1);
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>How was your workout?</Text>
-      <View style={styles.activityInfo}>
-        <Text style={styles.activityType}>{activityLabel}</Text>
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>How was your workout?</Text>
+      <View style={[styles.activityInfo, { backgroundColor: colors.background }]}>
+        <Text style={[styles.activityType, { color: colors.primary }]}>{activityLabel}</Text>
         {details.length > 0 && (
-          <Text style={styles.activityDetails}>{details.join(' - ')}</Text>
+          <Text style={[styles.activityDetails, { color: colors.textSecondary }]}>{details.join(' - ')}</Text>
         )}
       </View>
 
-      <Text style={styles.question}>Rate your effort (RPE)</Text>
+      <Text style={[styles.question, { color: colors.textPrimary }]}>Rate your effort (RPE)</Text>
       <View style={styles.options}>
         {RPE_OPTIONS.map((option) => (
           <EmojiOption
@@ -59,7 +61,7 @@ export function WorkoutUpdateCard({ workout, onSave, saving }: Props) {
       </View>
 
       <TouchableOpacity
-        style={[styles.saveButton, !selectedRpe && styles.saveButtonDisabled]}
+        style={[styles.saveButton, { backgroundColor: colors.primary }, !selectedRpe && styles.saveButtonDisabled]}
         onPress={() => selectedRpe && onSave(workout.source_id, selectedRpe)}
         disabled={!selectedRpe || saving}
         activeOpacity={0.8}
@@ -72,7 +74,6 @@ export function WorkoutUpdateCard({ workout, onSave, saving }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.card,
     borderRadius: Layout.checkin.cardRadius,
     padding: 20,
     marginBottom: 16,
@@ -85,7 +86,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: Colors.textPrimary,
     marginBottom: 8,
   },
   activityInfo: {
@@ -93,23 +93,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 20,
-    backgroundColor: Colors.background,
     padding: 10,
     borderRadius: 10,
   },
   activityType: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.primary,
   },
   activityDetails: {
     fontSize: 14,
-    color: Colors.textSecondary,
   },
   question: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.textPrimary,
     marginBottom: 10,
   },
   options: {
@@ -118,7 +114,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   saveButton: {
-    backgroundColor: Colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',

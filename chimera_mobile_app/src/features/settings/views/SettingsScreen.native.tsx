@@ -16,7 +16,7 @@ const { strings } = pkg;
 
 export default function SettingsScreen() {
   const { signOut, user } = useAuth();
-  const { colors } = useTheme();
+  const { colors, themeMode, setThemeMode } = useTheme();
   const [loading, setLoading] = useState(false);
   const [useGraphView, setUseGraphView] = useState(false);
   const [defaultPage, setDefaultPage] = useState('/(tabs)'); // Default to Home
@@ -222,6 +222,34 @@ export default function SettingsScreen() {
               onPress={() => handleSetWeightUnit('lbs')}
             >
               <Text style={[styles.pillText, { color: colors.textPrimary }, weightUnit === 'lbs' && styles.pillTextActive]}>lbs</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={{ height: 12 }} />
+        <View style={[styles.row, { backgroundColor: colors.card }]}>
+          <View style={styles.rowLeft}>
+            <Ionicons name="moon-outline" size={24} color={colors.primary} />
+            <Text style={[styles.rowText, { color: colors.textPrimary }]}>{strings['settings.darkMode']}</Text>
+          </View>
+          <View style={styles.pillContainer}>
+            <TouchableOpacity
+              style={[styles.pill, { backgroundColor: colors.background, borderColor: colors.border }, themeMode === 'auto' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              onPress={() => setThemeMode('auto')}
+            >
+              <Text style={[styles.pillText, { color: colors.textPrimary }, themeMode === 'auto' && styles.pillTextActive]}>Auto</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.pill, { backgroundColor: colors.background, borderColor: colors.border }, themeMode === 'light' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              onPress={() => setThemeMode('light')}
+            >
+              <Text style={[styles.pillText, { color: colors.textPrimary }, themeMode === 'light' && styles.pillTextActive]}>Light</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.pill, { backgroundColor: colors.background, borderColor: colors.border }, themeMode === 'dark' && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+              onPress={() => setThemeMode('dark')}
+            >
+              <Text style={[styles.pillText, { color: colors.textPrimary }, themeMode === 'dark' && styles.pillTextActive]}>Dark</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useState, useEffect, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { pkg } from '@infra/package';
+import { STORAGE_KEYS } from '@infra/storage/keys';
 
 const { colors: packageColors } = pkg;
 
@@ -11,6 +13,8 @@ type CoachColors = typeof packageColors.coach.light;
 type LoginColors = typeof packageColors.login.light;
 type DashboardColors = typeof packageColors.dashboard;
 
+export type ThemeMode = 'auto' | 'light' | 'dark';
+
 export interface ThemeValue {
   colors: ColorMode;
   activity: ActivityColors;
@@ -19,13 +23,30 @@ export interface ThemeValue {
   login: LoginColors;
   dashboard: DashboardColors;
   isDark: boolean;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
 }
 
 const ThemeContext = createContext<ThemeValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const systemScheme = useColorScheme();
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('auto');
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEYS.THEME_MODE).then(val => {
+      if (val === 'light' || val === 'dark' || val === 'auto') {
+        setThemeModeState(val);
+      }
+    });
+  }, []);
+
+  const setThemeMode = useCallback((mode: ThemeMode) => {
+    setThemeModeState(mode);
+    AsyncStorage.setItem(STORAGE_KEYS.THEME_MODE, mode);
+  }, []);
+
+  const isDark = themeMode === 'auto' ? systemScheme === 'dark' : themeMode === 'dark';
 
   const value = useMemo<ThemeValue>(() => ({
     colors: isDark ? packageColors.dark : packageColors.light,
@@ -35,7 +56,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     login: isDark ? packageColors.login.dark : packageColors.login.light,
     dashboard: packageColors.dashboard,
     isDark,
-  }), [isDark]);
+    themeMode,
+    setThemeMode,
+  }), [isDark, themeMode, setThemeMode]);
 
   return (
     <ThemeContext.Provider value={value}>

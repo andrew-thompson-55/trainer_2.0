@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors, Layout } from '../../../../theme';
+import { useTheme } from '@infra/theme';
+import { Layout } from '../../../../theme';
 import { METRICS } from '../constants';
 import { MetricRow } from './MetricRow';
 
@@ -27,12 +28,13 @@ export function MorningCheckin({
   onSave,
   saving,
 }: Props) {
+  const { colors } = useTheme();
   const hasAnySelection = Object.values(selections).some((v) => v !== null);
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>Morning Check-in</Text>
-      <Text style={styles.subtitle}>How are you feeling today?</Text>
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>Morning Check-in</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>How are you feeling today?</Text>
 
       {METRICS.map((metric) => (
         <MetricRow
@@ -45,9 +47,9 @@ export function MorningCheckin({
 
       {/* Body Weight */}
       <View style={styles.weightRow}>
-        <Text style={styles.weightLabel}>Body Weight ({weightUnit})</Text>
+        <Text style={[styles.weightLabel, { color: colors.textPrimary }]}>Body Weight ({weightUnit})</Text>
         <TextInput
-          style={styles.weightInput}
+          style={[styles.weightInput, { borderColor: colors.border, color: colors.textPrimary }]}
           value={bodyWeight}
           onChangeText={onWeightChange}
           keyboardType="decimal-pad"
@@ -58,7 +60,7 @@ export function MorningCheckin({
 
       {/* Note */}
       <TextInput
-        style={styles.noteInput}
+        style={[styles.noteInput, { borderColor: colors.border, color: colors.textPrimary }]}
         value={note}
         onChangeText={onNoteChange}
         placeholder="Add a note (optional)"
@@ -69,7 +71,7 @@ export function MorningCheckin({
 
       {/* Save Button */}
       <TouchableOpacity
-        style={[styles.saveButton, !hasAnySelection && styles.saveButtonDisabled]}
+        style={[styles.saveButton, { backgroundColor: colors.primary }, !hasAnySelection && styles.saveButtonDisabled]}
         onPress={onSave}
         disabled={!hasAnySelection || saving}
         activeOpacity={0.8}
@@ -82,7 +84,6 @@ export function MorningCheckin({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.card,
     borderRadius: Layout.checkin.cardRadius,
     padding: 20,
     marginBottom: 16,
@@ -95,12 +96,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: Colors.textPrimary,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.textSecondary,
     marginBottom: 20,
   },
   weightRow: {
@@ -112,32 +111,26 @@ const styles = StyleSheet.create({
   weightLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.textPrimary,
   },
   weightInput: {
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 8,
     width: 100,
     fontSize: 17,
     textAlign: 'center',
-    color: Colors.textPrimary,
   },
   noteInput: {
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: 12,
     padding: 12,
     fontSize: 15,
-    color: Colors.textPrimary,
     minHeight: 60,
     textAlignVertical: 'top',
     marginBottom: 16,
   },
   saveButton: {
-    backgroundColor: Colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',

@@ -1,24 +1,25 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors } from '../../../../theme';
+import { useTheme } from '@infra/theme';
 
 interface Props {
   streak: number;
 }
 
 export function StreakBadge({ streak }: Props) {
+  const { checkin } = useTheme();
+
   if (streak <= 0) return null;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>{streak} day streak</Text>
+    <View style={[styles.container, { backgroundColor: checkin.streakBg }]}>
+      <Text style={[styles.text, { color: checkin.streakText }]}>{streak} day streak</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.checkin.streakBg,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
@@ -27,6 +28,5 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.checkin.streakText,
   },
 });

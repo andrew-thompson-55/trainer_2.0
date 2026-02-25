@@ -1,20 +1,20 @@
-import React, { useState } from 'react'; // Added useState for loading state
-import { ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { api } from '../services/api';
 import { WorkoutForm } from '@features/workout';
-import { Colors } from '../theme';
+import { useTheme } from '@infra/theme';
 import { parseISO, differenceInMinutes } from 'date-fns';
 
 export default function EditWorkoutScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { colors } = useTheme();
   const [isSaving, setIsSaving] = useState(false);
 
   // 1. Prepare Initial Data
   const start = params.start_time ? parseISO(params.start_time as string) : new Date();
-  
+
   let initialDuration = '60';
   if (params.end_time && params.start_time) {
       const end = parseISO(params.end_time as string);
@@ -34,10 +34,7 @@ export default function EditWorkoutScreen() {
   const handleUpdate = async (data: any) => {
     setIsSaving(true);
     try {
-      // This awaits the DB write
       await api.updateWorkout(params.id as string, data);
-      
-      // When we go back, WorkoutDetailsScreen will trigger useFocusEffect and fetch fresh data
       router.back();
     } catch (e) {
       console.error("Failed to update workout", e);
@@ -47,14 +44,14 @@ export default function EditWorkoutScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }} edges={['top', 'left', 'right', 'bottom']}>
-      <WorkoutForm 
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right', 'bottom']}>
+      <WorkoutForm
         headerTitle="Edit Workout"
         submitLabel={isSaving ? "Saving..." : "Save"}
         initialValues={initialValues}
         onSubmit={handleUpdate}
         onCancel={() => router.back()}
-        isLoading={isSaving} // Make sure your WorkoutForm accepts an isLoading prop to disable the button
+        isLoading={isSaving}
       />
     </SafeAreaView>
   );

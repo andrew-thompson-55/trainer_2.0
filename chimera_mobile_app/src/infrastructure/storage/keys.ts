@@ -16,4 +16,5 @@ export const STORAGE_KEYS = {
   USE_GRAPH_VIEW: `${PREFIX}_use_graph_view`,
   CACHE_WORKOUTS: `${PREFIX}_cache_workouts`,
   CACHE_DASHBOARD: `${PREFIX}_cache_dashboard`,
+  THEME_MODE: `${PREFIX}_theme_mode`,
 } as const;

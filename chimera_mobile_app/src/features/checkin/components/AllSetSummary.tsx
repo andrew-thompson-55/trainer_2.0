@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Layout } from '../../../../theme';
+import { useTheme } from '@infra/theme';
+import { Layout } from '../../../../theme';
 import { METRICS } from '../constants';
 import type { MorningCheckin, WorkoutUpdate as CheckinWorkoutUpdate } from '../../../domain/types/checkin';
 
@@ -11,17 +12,19 @@ interface Props {
 }
 
 export function AllSetSummary({ morningCheckin, workoutUpdates, streak }: Props) {
+  const { colors, checkin } = useTheme();
+
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: checkin.savedBg, borderColor: checkin.savedBorder }]}>
       <Text style={styles.checkmark}>✅</Text>
-      <Text style={styles.title}>You're all set!</Text>
+      <Text style={[styles.title, { color: checkin.savedText }]}>You're all set!</Text>
       {streak > 0 && (
-        <Text style={styles.streakText}>{streak} day streak</Text>
+        <Text style={[styles.streakText, { color: checkin.streakText }]}>{streak} day streak</Text>
       )}
 
       {morningCheckin && (
-        <View style={styles.summarySection}>
-          <Text style={styles.sectionLabel}>Morning Check-in</Text>
+        <View style={[styles.summarySection, { borderTopColor: checkin.savedBorder }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Morning Check-in</Text>
           <View style={styles.summaryRow}>
             {METRICS.map((metric) => {
               const value = (morningCheckin as any)[metric.key];
@@ -30,7 +33,7 @@ export function AllSetSummary({ morningCheckin, workoutUpdates, streak }: Props)
               return (
                 <View key={metric.key} style={styles.summaryItem}>
                   <Text style={styles.summaryEmoji}>{option?.emoji}</Text>
-                  <Text style={styles.summaryLabel}>{metric.key}</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{metric.key}</Text>
                 </View>
               );
             })}
@@ -39,8 +42,8 @@ export function AllSetSummary({ morningCheckin, workoutUpdates, streak }: Props)
       )}
 
       {workoutUpdates.length > 0 && (
-        <View style={styles.summarySection}>
-          <Text style={styles.sectionLabel}>
+        <View style={[styles.summarySection, { borderTopColor: checkin.savedBorder }]}>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
             {workoutUpdates.length} workout{workoutUpdates.length > 1 ? 's' : ''} rated
           </Text>
         </View>
@@ -51,10 +54,8 @@ export function AllSetSummary({ morningCheckin, workoutUpdates, streak }: Props)
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.checkin.savedBg,
     borderRadius: Layout.checkin.cardRadius,
     borderWidth: 1,
-    borderColor: Colors.checkin.savedBorder,
     padding: 24,
     alignItems: 'center',
   },
@@ -65,13 +66,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: Colors.checkin.savedText,
     marginBottom: 4,
   },
   streakText: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.checkin.streakText,
     marginBottom: 16,
   },
   summarySection: {
@@ -79,12 +78,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: Colors.checkin.savedBorder,
   },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textSecondary,
     textTransform: 'uppercase',
     marginBottom: 10,
     textAlign: 'center',
@@ -102,7 +99,6 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 11,
-    color: Colors.textSecondary,
     marginTop: 2,
     textTransform: 'capitalize',
   },

@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native'; 
+import { View, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@infra/auth/auth-provider';
+import { useTheme } from '@infra/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors } from '../theme';
 import { STORAGE_KEYS } from '../src/infrastructure/storage/keys';
 
 export default function Index() {
   const { user, isLoading: authLoading } = useAuth();
+  const { colors } = useTheme();
   const [redirectRoute, setRedirectRoute] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
@@ -28,8 +29,8 @@ export default function Index() {
   // Wait for BOTH Auth and Storage check
   if (authLoading || !isReady) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color={Colors?.primary || "#0000ff"} />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
