@@ -36,3 +36,11 @@ export type {
   ChatRequest,
   ChatResponse,
 } from './chat';
+
+export type {
+  WeeklyMetric,
+  RecentActivity,
+  TodayCheckin,
+  UpcomingWorkout,
+  DashboardData,
+} from './dashboard';

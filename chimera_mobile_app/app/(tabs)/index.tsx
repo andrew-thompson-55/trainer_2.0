@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { Platform, StyleSheet, View, Text, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@infra/theme';
@@ -7,7 +7,19 @@ import { pkg } from '@infra/package';
 
 const { strings } = pkg;
 
+const WebDashboard = Platform.OS === 'web'
+  ? require('@features/web-dashboard/WebDashboard').WebDashboard as React.ComponentType
+  : null;
+
 export default function DashboardScreen() {
+  if (Platform.OS === 'web' && WebDashboard) {
+    return <WebDashboard />;
+  }
+
+  return <NativeDashboard />;
+}
+
+function NativeDashboard() {
   const router = useRouter();
   const { colors, dashboard } = useTheme();
 

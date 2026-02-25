@@ -21,7 +21,7 @@ from services import daily_checkin_service
 from services.agent_service import run_agent
 from dependencies import get_current_user
 
-from routers import auth, strava
+from routers import auth, strava, dashboard
 from package_loader import get_config
 from services.analytics_service import track as analytics_track, shutdown as analytics_shutdown
 
@@ -52,6 +52,7 @@ app.add_middleware(
 # 👇 REGISTER ROUTERS
 app.include_router(auth.router)
 app.include_router(strava.router)
+app.include_router(dashboard.router)
 
 # --- GEMINI SETUP ---
 api_key = os.getenv("GEMINI_API_KEY")
