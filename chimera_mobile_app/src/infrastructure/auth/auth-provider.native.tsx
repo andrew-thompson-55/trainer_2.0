@@ -155,11 +155,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       router.replace('/(auth)/login');
     } else if (user && (inAuthGroup || isRoot)) {
       // ✅ Logged in but stuck in the Auth Room? Get out!
-      if (user.isNewUser) {
-        router.replace('/onboarding');
-      } else {
-        router.replace('/(tabs)');
-      }
+      router.replace('/(tabs)');
     }
     // Note: If user is logged in and NOT in auth group (e.g. inside tabs), 
     // we do nothing. They are where they belong.

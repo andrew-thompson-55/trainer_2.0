@@ -12,9 +12,9 @@ export default function DashboardScreen() {
   const { colors, dashboard } = useTheme();
 
   const menuItems = [
-    { title: strings['dashboard.menu.trainingPlan'], icon: 'list', route: '/(tabs)/itinerary', color: dashboard.trainingPlan },
+    { title: strings['dashboard.menu.trainingPlan'], icon: 'list', route: '/(tabs)/plan', color: dashboard.trainingPlan },
     { title: strings['dashboard.menu.calendar'], icon: 'calendar', route: '/(tabs)/calendar', color: dashboard.calendar },
-    { title: strings['dashboard.menu.aiCoach'], icon: 'chatbubbles', route: '/(tabs)/chat', color: dashboard.aiCoach },
+    { title: strings['dashboard.menu.aiCoach'], icon: 'chatbubbles', route: '/(tabs)/coach', color: dashboard.aiCoach },
     { title: strings['dashboard.menu.checkIn'], icon: 'checkmark-circle', route: '/(tabs)/tracker', color: dashboard.checkIn },
     { title: strings['dashboard.menu.settings'], icon: 'settings', route: '/(tabs)/settings', color: dashboard.settings },
   ];
