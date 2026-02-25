@@ -10,6 +10,7 @@ import { WeekSummary } from './components/WeekSummary';
 import { RecentActivities } from './components/RecentActivities';
 import { TodayCheckin } from './components/TodayCheckin';
 import { UpcomingWorkouts } from './components/UpcomingWorkouts';
+import { ComplianceCard } from './components/ComplianceCard';
 
 export function WebDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -54,7 +55,7 @@ export function WebDashboard() {
   }
 
   const unit = data.settings.distance_unit;
-  const metricCards = buildMetricCards(data.weekly_metrics, unit);
+  const metricCards = buildMetricCards(data.weekly_metrics, unit, data.paced_deltas);
 
   return (
     <div style={styles.page}>
@@ -90,6 +91,7 @@ export function WebDashboard() {
           </div>
           <div style={styles.sideCol}>
             <TodayCheckin checkin={data.today.checkin} streak={data.today.streak} />
+            {data.compliance && <ComplianceCard compliance={data.compliance} />}
             <UpcomingWorkouts workouts={data.upcoming_workouts} />
           </div>
         </div>

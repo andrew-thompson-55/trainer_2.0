@@ -8,6 +8,19 @@ export interface WeeklyMetric {
   body_weight: number | null;
 }
 
+export interface PacedDelta {
+  current: number;
+  previous: number;
+  delta_pct: number | null;
+}
+
+export interface PacedDeltas {
+  volume_m: PacedDelta;
+  vert_m: PacedDelta;
+  duration_s: PacedDelta;
+  long_run_m: PacedDelta;
+}
+
 export interface RecentActivity {
   id: string;
   name: string;
@@ -33,10 +46,21 @@ export interface UpcomingWorkout {
   activity_type: string;
   start_time: string;
   description: string | null;
+  status: string;
+  is_today: boolean;
+}
+
+export interface ComplianceData {
+  score: number;
+  compliant_days: number;
+  total_days: number;
+  current_week: { compliant: number; total: number };
+  by_week: { week_start: string; compliant: number; total: number }[];
 }
 
 export interface DashboardData {
   weekly_metrics: WeeklyMetric[];
+  paced_deltas: PacedDeltas;
   recent_activities: RecentActivity[];
   today: {
     checkin: TodayCheckin | null;
@@ -49,5 +73,6 @@ export interface DashboardData {
     vert_ft: number;
   };
   race: { name: string; date: string } | null;
+  compliance: ComplianceData | null;
   settings: { distance_unit: 'mi' | 'km' };
 }

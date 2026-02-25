@@ -68,17 +68,23 @@ async def get_dashboard(user_id: str) -> dict:
             for r in (rpe_resp.data or [])
         }
 
-    # 6. Upcoming planned workouts
+    # 6. Upcoming planned workouts (include today's workouts)
+    today_start = datetime.combine(today, datetime.min.time()).isoformat()
     upcoming_resp = (
         supabase_admin.table("planned_workouts")
-        .select("id, title, activity_type, start_time, description")
+        .select("id, title, activity_type, start_time, description, status")
         .eq("user_id", user_id)
-        .eq("status", "planned")
-        .gte("start_time", datetime.now().isoformat())
+        .gte("start_time", today_start)
         .order("start_time", desc=False)
-        .limit(5)
+        .limit(7)
         .execute()
     )
+    # Tag today's workouts
+    upcoming_workouts = []
+    for w in (upcoming_resp.data or []):
+        w_date = w.get("start_time", "")[:10]
+        w["is_today"] = w_date == today.isoformat()
+        upcoming_workouts.append(w)
 
     # 7. User settings
     settings_resp = (
@@ -131,20 +137,28 @@ async def get_dashboard(user_id: str) -> dict:
             "date": settings_data["target_race_date"],
         }
 
+    # --- Paced deltas (week-to-date vs same point last week) ---
+    paced_deltas = _compute_paced_deltas(all_activities, today)
+
+    # --- Compliance score ---
+    compliance = await _compute_compliance(user_id, today)
+
     return {
         "weekly_metrics": weekly_metrics,
+        "paced_deltas": paced_deltas,
         "recent_activities": recent_activities,
         "today": {
             "checkin": today_checkin,
             "streak": streak,
         },
-        "upcoming_workouts": upcoming_resp.data or [],
+        "upcoming_workouts": upcoming_workouts,
         "week_summary": {
             "runs": len(week_activities),
             "miles": round(week_distance / 1609.34, 1),
             "vert_ft": round(week_vert * 3.28084),
         },
         "race": race,
+        "compliance": compliance,
         "settings": {
             "distance_unit": settings_data.get("distance_unit", "mi"),
         },
@@ -217,6 +231,125 @@ def _aggregate_weekly(activities: list, weight_entries: list, start: date, end: 
 def _week_start(d: date) -> date:
     """Return Monday of the week containing date d."""
     return d - timedelta(days=d.weekday())
+
+
+def _compute_paced_deltas(all_activities: list, today: date) -> dict:
+    """Compare current week-to-date vs same point in previous week."""
+    days_elapsed = today.weekday() + 1  # Mon=1..Sun=7
+    current_week_start = today - timedelta(days=today.weekday())
+    prev_week_start = current_week_start - timedelta(weeks=1)
+    prev_week_cutoff = prev_week_start + timedelta(days=days_elapsed - 1)
+
+    def _sum_period(start: date, end: date):
+        totals = {"volume_m": 0, "vert_m": 0, "duration_s": 0, "long_run_m": 0}
+        for a in all_activities:
+            if not a.get("start_time"):
+                continue
+            d = datetime.fromisoformat(a["start_time"].replace("Z", "+00:00")).date()
+            if start <= d <= end:
+                dist = a.get("distance_meters") or 0
+                totals["volume_m"] += dist
+                totals["vert_m"] += a.get("total_elevation_gain") or 0
+                totals["duration_s"] += a.get("moving_time_seconds") or 0
+                if dist > totals["long_run_m"]:
+                    totals["long_run_m"] = dist
+        return totals
+
+    current = _sum_period(current_week_start, today)
+    previous = _sum_period(prev_week_start, prev_week_cutoff)
+
+    result = {}
+    for key in ("volume_m", "vert_m", "duration_s", "long_run_m"):
+        cur_val = current[key]
+        prev_val = previous[key]
+        if prev_val > 0:
+            delta_pct = round(((cur_val - prev_val) / prev_val) * 100)
+        elif cur_val > 0:
+            delta_pct = 100
+        else:
+            delta_pct = None  # both zero
+        result[key] = {"current": cur_val, "previous": prev_val, "delta_pct": delta_pct}
+
+    return result
+
+
+async def _compute_compliance(user_id: str, today: date) -> dict | None:
+    """Compute plan compliance over the past 4 weeks."""
+    four_weeks_ago = today - timedelta(weeks=4)
+
+    planned_resp = (
+        supabase_admin.table("planned_workouts")
+        .select("start_time, activity_type, status")
+        .eq("user_id", user_id)
+        .gte("start_time", four_weeks_ago.isoformat())
+        .lte("start_time", today.isoformat() + "T23:59:59")
+        .order("start_time", desc=False)
+        .execute()
+    )
+    planned = planned_resp.data or []
+    if not planned:
+        return None
+
+    # Get completed activities for the same period
+    completed_resp = (
+        supabase_admin.table("completed_activities")
+        .select("start_time")
+        .eq("user_id", user_id)
+        .gte("start_time", four_weeks_ago.isoformat())
+        .lte("start_time", today.isoformat() + "T23:59:59")
+        .execute()
+    )
+    completed_dates = set()
+    for a in (completed_resp.data or []):
+        if a.get("start_time"):
+            completed_dates.add(a["start_time"][:10])
+
+    # Evaluate compliance per planned day
+    compliant_days = 0
+    total_days = 0
+    current_week_start = today - timedelta(days=today.weekday())
+    current_week_compliant = 0
+    current_week_total = 0
+    by_week = {}
+
+    for p in planned:
+        p_date = p.get("start_time", "")[:10]
+        if not p_date:
+            continue
+        total_days += 1
+        is_rest = "rest" in (p.get("activity_type") or "").lower()
+        has_activity = p_date in completed_dates
+
+        compliant = (is_rest and not has_activity) or (not is_rest and has_activity)
+        if compliant:
+            compliant_days += 1
+
+        # Track current week
+        try:
+            p_date_obj = datetime.strptime(p_date, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        wk = _week_start(p_date_obj).isoformat()
+        if wk not in by_week:
+            by_week[wk] = {"compliant": 0, "total": 0}
+        by_week[wk]["total"] += 1
+        if compliant:
+            by_week[wk]["compliant"] += 1
+
+        if p_date_obj >= current_week_start:
+            current_week_total += 1
+            if compliant:
+                current_week_compliant += 1
+
+    score = round((compliant_days / total_days) * 100) if total_days > 0 else 0
+
+    return {
+        "score": score,
+        "compliant_days": compliant_days,
+        "total_days": total_days,
+        "current_week": {"compliant": current_week_compliant, "total": current_week_total},
+        "by_week": [{"week_start": k, **v} for k, v in sorted(by_week.items())],
+    }
 
 
 def _extract_activity_name(activity: dict) -> str:

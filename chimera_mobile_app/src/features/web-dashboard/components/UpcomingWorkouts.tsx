@@ -12,7 +12,14 @@ export function UpcomingWorkouts({ workouts }: UpcomingWorkoutsProps) {
     return (
       <div style={styles.container}>
         <div style={styles.title}>Upcoming Workouts</div>
-        <div style={styles.empty}>No planned workouts</div>
+        <div style={styles.emptyState}>
+          <div style={styles.emptyText}>No plan loaded</div>
+          <div style={styles.emptyActions}>
+            <span style={styles.emptyLink}>Import Plan</span>
+            <span style={styles.emptyDivider}>·</span>
+            <span style={styles.emptyLink}>Add Workout</span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -21,27 +28,55 @@ export function UpcomingWorkouts({ workouts }: UpcomingWorkoutsProps) {
     <div style={styles.container}>
       <div style={styles.title}>Upcoming Workouts</div>
       <div style={styles.list}>
-        {workouts.map((w) => (
-          <div key={w.id} style={styles.row}>
+        {workouts.map((w) => {
+          const isRest = w.activity_type.toLowerCase().includes('rest');
+          const isCompleted = w.status === 'completed';
+
+          return (
             <div
+              key={w.id}
               style={{
-                ...styles.colorBar,
-                backgroundColor: getActivityColor(w.activity_type),
+                ...styles.row,
+                ...(w.is_today ? styles.todayRow : {}),
+                ...(isCompleted ? styles.completedRow : {}),
               }}
-            />
-            <div style={styles.info}>
-              <div style={styles.workoutTitle}>{w.title}</div>
-              <div style={styles.workoutDate}>{formatDate(w.start_time)}</div>
-              {w.description && (
-                <div style={styles.workoutDesc}>
-                  {w.description.length > 80
-                    ? w.description.slice(0, 80) + '...'
-                    : w.description}
+            >
+              <div
+                style={{
+                  ...styles.colorBar,
+                  backgroundColor: isRest ? COLORS.textDim : getActivityColor(w.activity_type),
+                }}
+              />
+              <div style={styles.info}>
+                <div style={styles.workoutHeader}>
+                  <div style={{
+                    ...styles.workoutTitle,
+                    ...(isCompleted ? styles.completedText : {}),
+                  }}>
+                    {w.title}
+                  </div>
+                  {w.is_today && (
+                    <span style={styles.todayBadge}>TODAY</span>
+                  )}
+                  {isCompleted && (
+                    <span style={styles.completedBadge}>DONE</span>
+                  )}
                 </div>
-              )}
+                <div style={styles.workoutDate}>{formatDate(w.start_time)}</div>
+                {w.is_today && w.description && (
+                  <div style={styles.workoutDesc}>{w.description}</div>
+                )}
+                {!w.is_today && w.description && (
+                  <div style={styles.workoutDesc}>
+                    {w.description.length > 80
+                      ? w.description.slice(0, 80) + '...'
+                      : w.description}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -74,6 +109,13 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     background: COLORS.bg,
   },
+  todayRow: {
+    border: `1px solid ${COLORS.green}40`,
+    background: `${COLORS.greenDim}30`,
+  },
+  completedRow: {
+    opacity: 0.6,
+  },
   colorBar: {
     width: 3,
     borderRadius: 2,
@@ -84,11 +126,40 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     minWidth: 0,
   },
+  workoutHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
   workoutTitle: {
     fontFamily: FONT.mono,
     fontSize: 13,
     fontWeight: 600,
     color: COLORS.text,
+  },
+  completedText: {
+    textDecoration: 'line-through',
+    color: COLORS.textDim,
+  },
+  todayBadge: {
+    fontFamily: FONT.mono,
+    fontSize: 9,
+    fontWeight: 700,
+    color: COLORS.green,
+    background: `${COLORS.greenDim}60`,
+    padding: '1px 6px',
+    borderRadius: 3,
+    letterSpacing: 0.5,
+  },
+  completedBadge: {
+    fontFamily: FONT.mono,
+    fontSize: 9,
+    fontWeight: 700,
+    color: COLORS.textDim,
+    background: COLORS.surfaceHover,
+    padding: '1px 6px',
+    borderRadius: 3,
+    letterSpacing: 0.5,
   },
   workoutDate: {
     fontFamily: FONT.mono,
@@ -103,11 +174,30 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 4,
     lineHeight: '1.4',
   },
-  empty: {
+  emptyState: {
+    textAlign: 'center',
+    padding: '24px 0',
+  },
+  emptyText: {
     fontFamily: FONT.mono,
     fontSize: 13,
     color: COLORS.textDim,
-    textAlign: 'center',
-    padding: '24px 0',
+    marginBottom: 8,
+  },
+  emptyActions: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: 8,
+    alignItems: 'center',
+  },
+  emptyLink: {
+    fontFamily: FONT.mono,
+    fontSize: 12,
+    color: COLORS.accent,
+    cursor: 'pointer',
+  },
+  emptyDivider: {
+    color: COLORS.textDim,
+    fontSize: 12,
   },
 };

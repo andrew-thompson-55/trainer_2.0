@@ -170,3 +170,17 @@ class MorningCheckinCreate(BaseModel):
 
 class WorkoutUpdateCreate(BaseModel):
     session_rpe: int = Field(..., ge=1, le=5)
+
+
+# --- Plan Import Models ---
+class PlannedWorkoutImport(BaseModel):
+    date: date_type
+    title: str
+    activity_type: str
+    description: Optional[str] = None
+    target_duration_minutes: Optional[int] = None
+    target_notes: Optional[str] = None
+
+
+class PlanImportRequest(BaseModel):
+    workouts: list[PlannedWorkoutImport] = Field(..., min_length=1)
