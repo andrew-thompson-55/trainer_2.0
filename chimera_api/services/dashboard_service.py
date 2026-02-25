@@ -16,11 +16,7 @@ async def get_dashboard(user_id: str) -> dict:
     # 1. Completed activities — last 12 weeks
     activities_resp = (
         supabase_admin.table("completed_activities")
-        .select(
-            "id, source_id, activity_type, start_time, distance_meters, "
-            "moving_time_seconds, total_elevation_gain, average_heartrate, "
-            "activity_data_blob"
-        )
+        .select("*")
         .eq("user_id", user_id)
         .gte("start_time", twelve_weeks_ago.isoformat())
         .order("start_time", desc=True)
@@ -87,7 +83,7 @@ async def get_dashboard(user_id: str) -> dict:
     # 7. User settings
     settings_resp = (
         supabase_admin.table("user_settings")
-        .select("target_race, target_race_date, distance_unit")
+        .select("*")
         .eq("user_id", user_id)
         .limit(1)
         .execute()
