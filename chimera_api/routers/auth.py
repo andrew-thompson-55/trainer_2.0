@@ -165,6 +165,27 @@ async def get_user_settings_route(user_id: str = Depends(get_current_user)):
         workout_update_reminder=settings.get("workout_update_reminder", _nd["workoutUpdateReminder"]),
         streak_reminder=settings.get("streak_reminder", _nd["streakReminder"]),
         streak_reminder_time=settings.get("streak_reminder_time", _nd["streakReminderTime"]),
+        # Profile fields
+        date_of_birth=settings.get("date_of_birth"),
+        gender=settings.get("gender"),
+        height_value=settings.get("height_value"),
+        height_unit=settings.get("height_unit"),
+        # Training profile
+        training_experience=settings.get("training_experience"),
+        primary_activities=settings.get("primary_activities"),
+        weekly_training_days=settings.get("weekly_training_days"),
+        rest_day_preference=settings.get("rest_day_preference"),
+        rest_days=settings.get("rest_days"),
+        max_heart_rate=settings.get("max_heart_rate"),
+        # Distance unit
+        distance_unit=settings.get("distance_unit", "mi"),
+        # Expanded notifications
+        notification_weekly_summary=settings.get("notification_weekly_summary", False),
+        notification_weekly_summary_day=settings.get("notification_weekly_summary_day"),
+        notification_weekly_summary_time=settings.get("notification_weekly_summary_time"),
+        # Strava connected state
+        strava_athlete_id=settings.get("strava_athlete_id"),
+        strava_athlete_name=settings.get("strava_athlete_name"),
     )
 
 

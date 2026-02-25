@@ -23,6 +23,7 @@ export default function RootLayout() {
             <Stack.Screen name="add_workout" options={{ headerShown: false }} />
             <Stack.Screen name="edit_workout" options={{ headerShown: false }} />
             <Stack.Screen name="workout_details" options={{ headerShown: false }} />
+            <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
           <StatusBar style="auto" />

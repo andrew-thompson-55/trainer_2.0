@@ -99,6 +99,28 @@ class UserSettingsUpdate(BaseModel):
     streak_reminder: Optional[bool] = None
     streak_reminder_time: Optional[str] = None
 
+    # Profile fields
+    date_of_birth: Optional[str] = None
+    gender: Optional[Literal['male', 'female', 'non-binary', 'prefer_not_to_say']] = None
+    height_value: Optional[float] = None
+    height_unit: Optional[Literal['in', 'cm']] = None
+
+    # Training profile
+    training_experience: Optional[Literal['beginner', 'intermediate', 'advanced', 'elite']] = None
+    primary_activities: Optional[list[str]] = None
+    weekly_training_days: Optional[int] = None
+    rest_day_preference: Optional[Literal['none', 'fixed', 'flexible']] = None
+    rest_days: Optional[list[str]] = None
+    max_heart_rate: Optional[int] = None
+
+    # Distance unit
+    distance_unit: Optional[Literal['mi', 'km']] = None
+
+    # Expanded notifications
+    notification_weekly_summary: Optional[bool] = None
+    notification_weekly_summary_day: Optional[str] = None
+    notification_weekly_summary_time: Optional[str] = None
+
 
 class UserSettingsResponse(BaseModel):
     weight_unit: str = 'kg'
@@ -107,6 +129,32 @@ class UserSettingsResponse(BaseModel):
     workout_update_reminder: bool = False
     streak_reminder: bool = False
     streak_reminder_time: str = '10:00'
+
+    # Profile fields
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+    height_value: Optional[float] = None
+    height_unit: Optional[str] = None
+
+    # Training profile
+    training_experience: Optional[str] = None
+    primary_activities: Optional[list[str]] = None
+    weekly_training_days: Optional[int] = None
+    rest_day_preference: Optional[str] = None
+    rest_days: Optional[list[str]] = None
+    max_heart_rate: Optional[int] = None
+
+    # Distance unit
+    distance_unit: str = 'mi'
+
+    # Expanded notifications
+    notification_weekly_summary: bool = False
+    notification_weekly_summary_day: Optional[str] = None
+    notification_weekly_summary_time: Optional[str] = None
+
+    # Strava connected state
+    strava_athlete_id: Optional[int] = None
+    strava_athlete_name: Optional[str] = None
 
 
 # --- Daily Check-in Models ---

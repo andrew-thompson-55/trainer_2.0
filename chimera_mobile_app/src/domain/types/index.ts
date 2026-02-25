@@ -26,6 +26,8 @@ export type {
   User,
   ProfileUpdate,
   WeightUnit,
+  DistanceUnit,
+  HeightUnit,
   UserSettings,
 } from './user';
 
