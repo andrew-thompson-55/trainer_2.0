@@ -7,6 +7,7 @@ from services.user_settings_service import (
     get_user_timezone,
     get_local_now,
 )
+from services.activity_filter_service import is_activity_included
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ async def build_agent_context(user_id: str) -> dict:
     context["injury_notes"] = settings.get("injury_notes")
     context["coach_notes"] = settings.get("coach_notes")
     context["strava_connected"] = bool(settings.get("strava_athlete_id"))
+    tracked_types = settings.get("tracked_activity_types") or []
 
     # Upcoming workouts (next 7 days)
     try:
@@ -73,20 +75,20 @@ async def build_agent_context(user_id: str) -> dict:
         logger.warning(f"Failed to fetch daily checkins: {e}")
         context["recent_daily_logs"] = []
 
-    # Recent completed activities (last 7 days, summarized)
+    # Recent completed activities (last 7 days, summarized, stats-included only)
     try:
         act_start = (now - timedelta(days=7)).strftime("%Y-%m-%dT00:00:00")
         act_end = now.strftime("%Y-%m-%dT23:59:59")
         resp = (
             supabase_admin.table("completed_activities")
-            .select("start_time, distance_meters, moving_time_seconds, average_heartrate, total_elevation_gain")
+            .select("start_time, distance_meters, moving_time_seconds, average_heartrate, total_elevation_gain, original_activity_type, stats_override, stats_excluded")
             .eq("user_id", user_id)
             .gte("start_time", act_start)
             .lte("start_time", act_end)
             .order("start_time", desc=False)
             .execute()
         )
-        activities = resp.data or []
+        activities = [a for a in (resp.data or []) if is_activity_included(a, tracked_types)]
         context["recent_activities"] = [
             {
                 "start_time": a["start_time"],

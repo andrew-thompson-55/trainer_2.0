@@ -2,6 +2,7 @@ import logging
 import json
 from datetime import datetime, timedelta, date
 from db_client import supabase_admin
+from services.activity_filter_service import is_activity_included
 
 logger = logging.getLogger(__name__)
 
@@ -95,10 +96,17 @@ async def get_dashboard(user_id: str) -> dict:
         .execute()
     )
 
-    # --- Aggregate weekly metrics ---
-    weekly_metrics = _aggregate_weekly(all_activities, weight_resp.data or [], twelve_weeks_ago, today)
+    # --- Activity filtering ---
+    settings_data_raw = (settings_resp.data or [{}])[0] if settings_resp.data else {}
+    tracked_types = settings_data_raw.get("tracked_activity_types") or []
 
-    # --- Recent activities (up to 8) ---
+    # Split: stats_activities for metrics, all_activities for display
+    stats_activities = [a for a in all_activities if is_activity_included(a, tracked_types)]
+
+    # --- Aggregate weekly metrics (stats-included only) ---
+    weekly_metrics = _aggregate_weekly(stats_activities, weight_resp.data or [], twelve_weeks_ago, today)
+
+    # --- Recent activities (up to 8, all activities with stats_included flag) ---
     recent_activities = []
     for a in all_activities[:8]:
         name = _extract_activity_name(a)
@@ -106,12 +114,14 @@ async def get_dashboard(user_id: str) -> dict:
             "id": a["id"],
             "name": name,
             "activity_type": a.get("activity_type"),
+            "original_activity_type": a.get("original_activity_type"),
             "start_time": a.get("start_time"),
             "distance_meters": a.get("distance_meters") or 0,
             "moving_time_seconds": a.get("moving_time_seconds") or 0,
             "total_elevation_gain": a.get("total_elevation_gain") or 0,
             "average_heartrate": a.get("average_heartrate"),
             "session_rpe": rpe_map.get(a.get("source_id")),
+            "stats_included": is_activity_included(a, tracked_types),
         })
 
     # --- Today's checkin ---
@@ -119,17 +129,17 @@ async def get_dashboard(user_id: str) -> dict:
     if today_checkin_resp.data:
         today_checkin = today_checkin_resp.data[0]
 
-    # --- Week summary (current week Mon-Sun) ---
+    # --- Week summary (current week Mon-Sun, stats-included only) ---
     week_start = today - timedelta(days=today.weekday())
     week_activities = [
-        a for a in all_activities
+        a for a in stats_activities
         if a.get("start_time") and a["start_time"][:10] >= week_start.isoformat()
     ]
     week_distance = sum(a.get("distance_meters") or 0 for a in week_activities)
     week_vert = sum(a.get("total_elevation_gain") or 0 for a in week_activities)
 
     # --- Race info ---
-    settings_data = (settings_resp.data or [{}])[0] if settings_resp.data else {}
+    settings_data = settings_data_raw
     race = None
     if settings_data.get("target_race") and settings_data.get("target_race_date"):
         race = {
@@ -137,8 +147,8 @@ async def get_dashboard(user_id: str) -> dict:
             "date": settings_data["target_race_date"],
         }
 
-    # --- Paced deltas (week-to-date vs same point last week) ---
-    paced_deltas = _compute_paced_deltas(all_activities, today)
+    # --- Paced deltas (week-to-date vs same point last week, stats-included only) ---
+    paced_deltas = _compute_paced_deltas(stats_activities, today)
 
     # --- Compliance score ---
     compliance = await _compute_compliance(user_id, today)
@@ -290,18 +300,29 @@ async def _compute_compliance(user_id: str, today: date) -> dict | None:
     if not planned:
         return None
 
-    # Get completed activities for the same period
+    # Get completed activities for the same period (filtered by tracked types)
     completed_resp = (
         supabase_admin.table("completed_activities")
-        .select("start_time")
+        .select("start_time, original_activity_type, stats_override, stats_excluded")
         .eq("user_id", user_id)
         .gte("start_time", four_weeks_ago.isoformat())
         .lte("start_time", today.isoformat() + "T23:59:59")
         .execute()
     )
+
+    # Get tracked types for filtering
+    settings_resp = (
+        supabase_admin.table("user_settings")
+        .select("tracked_activity_types")
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    tracked_types = (settings_resp.data or [{}])[0].get("tracked_activity_types") or []
+
     completed_dates = set()
     for a in (completed_resp.data or []):
-        if a.get("start_time"):
+        if a.get("start_time") and is_activity_included(a, tracked_types):
             completed_dates.add(a["start_time"][:10])
 
     # Evaluate compliance per planned day

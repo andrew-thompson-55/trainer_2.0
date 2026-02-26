@@ -30,6 +30,7 @@ export function RecentActivities({ activities, distanceUnit }: RecentActivitiesP
             style={{
               ...styles.row,
               backgroundColor: hoveredIdx === i ? COLORS.surfaceHover : 'transparent',
+              opacity: a.stats_included === false ? 0.5 : 1,
             }}
             onMouseEnter={() => setHoveredIdx(i)}
             onMouseLeave={() => setHoveredIdx(null)}
@@ -42,7 +43,12 @@ export function RecentActivities({ activities, distanceUnit }: RecentActivitiesP
             />
             <div style={styles.info}>
               <div style={styles.actName}>{a.name}</div>
-              <div style={styles.actDate}>{formatDate(a.start_time)}</div>
+              <div style={styles.actDate}>
+                {formatDate(a.start_time)}
+                {a.stats_included === false && (
+                  <span style={styles.excludedLabel}> — Excluded from stats</span>
+                )}
+              </div>
             </div>
             <div style={styles.stat}>
               <div style={styles.statValue}>{formatDistance(a.distance_meters, distanceUnit)}</div>
@@ -142,6 +148,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 11,
     color: COLORS.textDim,
     marginTop: 2,
+  },
+  excludedLabel: {
+    fontFamily: FONT.mono,
+    fontSize: 10,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
   },
   stat: {
     textAlign: 'right' as const,

@@ -120,6 +120,7 @@ def _build_activity_record(user_id: str, data: dict) -> dict:
         "source_type": "strava",
         "source_id": str(data["id"]),
         "activity_type": _map_activity_type(data.get("type", "")),
+        "original_activity_type": data.get("type", "Workout"),
         "start_time": data["start_date"],
         "distance_meters": data.get("distance"),
         "moving_time_seconds": _safe_int(data.get("moving_time")),
@@ -177,6 +178,10 @@ async def _handle_activity_create(user_id: str, activity_id: int):
     )
 
     await _auto_link_to_plan(user_id, result.data[0]["id"], data)
+
+    # Auto-add new activity type to tracked types
+    from services.activity_filter_service import auto_add_new_type
+    await auto_add_new_type(user_id, activity_record["original_activity_type"])
 
     analytics_track(user_id, "strava_activity_synced", {
         "activity_id": activity_id,

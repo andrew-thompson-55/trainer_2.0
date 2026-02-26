@@ -8,6 +8,7 @@ from google.auth.transport import requests as google_requests
 from db_client import supabase_admin
 from schemas import ProfileUpdate, GoogleLoginRequest, UserSettingsUpdate, UserSettingsResponse
 from services import user_settings_service
+from services import activity_filter_service
 from dependencies import get_current_user
 from package_loader import get_persona, get_config
 
@@ -186,6 +187,8 @@ async def get_user_settings_route(user_id: str = Depends(get_current_user)):
         # Strava connected state
         strava_athlete_id=settings.get("strava_athlete_id"),
         strava_athlete_name=settings.get("strava_athlete_name"),
+        # Activity filtering
+        tracked_activity_types=settings.get("tracked_activity_types"),
     )
 
 
@@ -197,3 +200,9 @@ async def update_user_settings_route(
     updates = data.model_dump(exclude_unset=True)
     await user_settings_service.update_user_settings(user_id, updates)
     return {"status": "updated"}
+
+
+@router.post("/settings/initialize-tracked-types")
+async def initialize_tracked_types_route(user_id: str = Depends(get_current_user)):
+    types = await activity_filter_service.initialize_tracked_types(user_id)
+    return {"tracked_activity_types": types}

@@ -66,6 +66,11 @@ export default function SettingsScreen() {
   const [restDays, setRestDays] = useState<string[]>([]);
   const [maxHeartRate, setMaxHeartRate] = useState<string>('');
 
+  // Tracked activity types state
+  const [allActivityTypes, setAllActivityTypes] = useState<string[]>([]);
+  const [trackedActivityTypes, setTrackedActivityTypes] = useState<string[]>([]);
+  const [trackedTypesLoading, setTrackedTypesLoading] = useState(false);
+
   // Strava state
   const [stravaConnected, setStravaConnected] = useState(false);
   const [stravaAthleteName, setStravaAthleteName] = useState<string>('');
@@ -119,6 +124,21 @@ export default function SettingsScreen() {
       // Strava
       setStravaConnected(!!s.strava_athlete_id);
       setStravaAthleteName(s.strava_athlete_name ?? '');
+      // Tracked activity types
+      const types = s.tracked_activity_types ?? [];
+      setTrackedActivityTypes(types);
+      setAllActivityTypes(types); // initially, all known types = tracked types
+      // Initialize tracked types if empty
+      if (types.length === 0) {
+        setTrackedTypesLoading(true);
+        userApi.initializeTrackedTypes(authFetch)
+          .then(initialized => {
+            setTrackedActivityTypes(initialized);
+            setAllActivityTypes(initialized);
+          })
+          .catch(() => {})
+          .finally(() => setTrackedTypesLoading(false));
+      }
     }).catch(() => {/* use cached */});
   }, []);
 
@@ -200,6 +220,14 @@ export default function SettingsScreen() {
   const handleSaveMaxHR = () => {
     const val = maxHeartRate ? parseInt(maxHeartRate, 10) : null;
     saveSetting({ max_heart_rate: val ?? undefined });
+  };
+
+  const handleToggleTrackedType = (type: string, value: boolean) => {
+    const updated = value
+      ? [...trackedActivityTypes, type].sort()
+      : trackedActivityTypes.filter(t => t !== type);
+    setTrackedActivityTypes(updated);
+    saveSetting({ tracked_activity_types: updated });
   };
 
   const exchangeStravaCode = async (code: string) => {
@@ -579,6 +607,35 @@ export default function SettingsScreen() {
         </View>
 
         <View style={{ height: 24 }} />
+
+        {/* ===== TRACKED ACTIVITIES ===== */}
+        {allActivityTypes.length > 0 && (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Tracked Activities</Text>
+            <View style={[styles.sectionCard, { backgroundColor: colors.card }]}>
+              {trackedTypesLoading ? (
+                <Text style={[{ color: colors.textSecondary, fontSize: 14 }]}>Loading activity types...</Text>
+              ) : (
+                [...allActivityTypes].sort().map(type => (
+                  <View key={type} style={[styles.row, { paddingVertical: 10, paddingHorizontal: 0, borderRadius: 0 }]}>
+                    <Text style={[styles.rowText, { color: colors.textPrimary, fontSize: 15 }]}>
+                      {type}
+                    </Text>
+                    <Switch
+                      value={trackedActivityTypes.includes(type)}
+                      onValueChange={(v) => handleToggleTrackedType(type, v)}
+                      trackColor={{ false: colors.switchTrackOff, true: colors.primary }}
+                    />
+                  </View>
+                ))
+              )}
+            </View>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+              Excluded types still appear on your calendar but won't count toward volume, metrics, or compliance.
+            </Text>
+            <View style={{ height: 24 }} />
+          </>
+        )}
 
         {/* ===== NOTIFICATIONS ===== */}
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{strings['settings.notifications']}</Text>

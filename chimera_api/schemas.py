@@ -121,6 +121,9 @@ class UserSettingsUpdate(BaseModel):
     notification_weekly_summary_day: Optional[str] = None
     notification_weekly_summary_time: Optional[str] = None
 
+    # Activity filtering
+    tracked_activity_types: Optional[list[str]] = None
+
 
 class UserSettingsResponse(BaseModel):
     weight_unit: str = 'kg'
@@ -155,6 +158,14 @@ class UserSettingsResponse(BaseModel):
     # Strava connected state
     strava_athlete_id: Optional[int] = None
     strava_athlete_name: Optional[str] = None
+
+    # Activity filtering
+    tracked_activity_types: Optional[list[str]] = None
+
+
+# --- Activity Stats Toggle ---
+class ActivityStatsToggle(BaseModel):
+    include: bool
 
 
 # --- Daily Check-in Models ---

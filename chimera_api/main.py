@@ -15,9 +15,11 @@ from schemas import (
     WorkoutResponse,
     MorningCheckinCreate,
     WorkoutUpdateCreate,
+    ActivityStatsToggle,
 )
 from services import workout_service
 from services import daily_checkin_service
+from services import activity_filter_service
 from services.agent_service import run_agent
 from dependencies import get_current_user
 
@@ -128,6 +130,19 @@ async def get_linked_activity(
 ):
     activity = await workout_service.get_linked_activity(workout_id, user_id)
     return activity if activity else {}
+
+
+# --- ACTIVITY STATS TOGGLE ---
+@app.patch("/v1/activities/{activity_id}/stats", tags=["Activities"])
+async def toggle_activity_stats(
+    activity_id: UUID,
+    body: ActivityStatsToggle,
+    user_id: str = Depends(get_current_user),
+):
+    result = await activity_filter_service.toggle_activity_stats(
+        user_id, str(activity_id), body.include
+    )
+    return result
 
 
 # --- DAILY CHECK-IN ---

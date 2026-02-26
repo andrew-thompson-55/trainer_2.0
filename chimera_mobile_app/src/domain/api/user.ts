@@ -44,3 +44,14 @@ export async function updateUserSettings(
   });
   if (!res.ok) throw new Error(`Failed to update settings: ${res.status}`);
 }
+
+export async function initializeTrackedTypes(
+  fetch: FetchFn
+): Promise<string[]> {
+  const res = await fetch('/settings/initialize-tracked-types', {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(`Failed to initialize tracked types: ${res.status}`);
+  const data = await res.json();
+  return data.tracked_activity_types;
+}

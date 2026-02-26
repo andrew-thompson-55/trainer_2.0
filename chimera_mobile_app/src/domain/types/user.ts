@@ -51,4 +51,7 @@ export interface UserSettings {
   // Strava connected state
   strava_athlete_id?: number;
   strava_athlete_name?: string;
+
+  // Activity filtering
+  tracked_activity_types?: string[];
 }

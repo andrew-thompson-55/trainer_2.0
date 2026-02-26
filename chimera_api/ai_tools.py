@@ -1,7 +1,8 @@
 import logging
 from datetime import datetime, timedelta
 from services import workout_service
-from services.user_settings_service import update_coach_notes
+from services.user_settings_service import update_coach_notes, get_user_settings
+from services.activity_filter_service import is_activity_included
 from schemas import WorkoutCreate
 from db_client import supabase_admin
 
@@ -347,14 +348,19 @@ async def execute_tool_call(function_name, args, user_id: str):
         try:
             query = (
                 supabase_admin.table("completed_activities")
-                .select("id, start_time, distance_meters, moving_time_seconds, elapsed_time_seconds, total_elevation_gain, average_heartrate, planned_workout_id, source_type")
+                .select("id, start_time, distance_meters, moving_time_seconds, elapsed_time_seconds, total_elevation_gain, average_heartrate, planned_workout_id, source_type, original_activity_type, stats_override, stats_excluded")
                 .eq("user_id", user_id)
                 .gte("start_time", f"{start}T00:00:00")
                 .lte("start_time", f"{end}T23:59:59")
                 .order("start_time", desc=False)
             )
             response = query.execute()
-            activities = response.data or []
+            all_activities = response.data or []
+
+            # Filter to stats-included activities
+            settings = await get_user_settings(user_id)
+            tracked_types = settings.get("tracked_activity_types") or []
+            activities = [a for a in all_activities if is_activity_included(a, tracked_types)]
 
             return {
                 "status": "success",
@@ -397,16 +403,20 @@ async def execute_tool_call(function_name, args, user_id: str):
             )
             planned = planned_resp.data or []
 
-            # Get completed activities in range
+            # Get completed activities in range (filtered by tracked types)
             completed_resp = (
                 supabase_admin.table("completed_activities")
-                .select("id")
+                .select("id, original_activity_type, stats_override, stats_excluded")
                 .eq("user_id", user_id)
                 .gte("start_time", start_str)
                 .lte("start_time", end_str)
                 .execute()
             )
-            completed = completed_resp.data or []
+            all_completed = completed_resp.data or []
+
+            settings = await get_user_settings(user_id)
+            tracked_types = settings.get("tracked_activity_types") or []
+            completed = [a for a in all_completed if is_activity_included(a, tracked_types)]
 
             total_planned = len(planned)
             completed_count = sum(1 for w in planned if w.get("status") == "completed")

@@ -25,12 +25,14 @@ export interface RecentActivity {
   id: string;
   name: string;
   activity_type: string | null;
+  original_activity_type?: string | null;
   start_time: string;
   distance_meters: number;
   moving_time_seconds: number;
   total_elevation_gain: number;
   average_heartrate: number | null;
   session_rpe: number | null;
+  stats_included?: boolean;
 }
 
 export interface TodayCheckin {

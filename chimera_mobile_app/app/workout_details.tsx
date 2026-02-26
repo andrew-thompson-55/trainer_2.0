@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect, Stack } from 'expo-router';
 import { format, parseISO } from 'date-fns';
@@ -9,6 +9,8 @@ import { api } from '../services/api';
 import { useTheme, Typography } from '@infra/theme';
 import { Layout } from '../theme';
 import { STORAGE_KEYS } from '../src/infrastructure/storage/keys';
+import { authFetch } from '@infra/fetch/auth-fetch';
+import { toggleActivityStats } from '@domain/api/dashboard';
 
 import { StatsGrid } from '../components/stats-grid';
 import { StatsGraphs } from '../components/stats-graphs';
@@ -34,6 +36,7 @@ export default function WorkoutDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [useGraphView, setUseGraphView] = useState(false);
+  const [statsIncluded, setStatsIncluded] = useState(true);
 
   // 2. THE FIX: Fetch fresh data every time screen focuses
   useFocusEffect(
@@ -54,7 +57,15 @@ export default function WorkoutDetailsScreen() {
 
           // C. Fetch Linked Strava Activity
           const linkedData = await api.getLinkedActivity(workoutId);
-          if (isActive && linkedData) setActivity(linkedData);
+          if (isActive && linkedData) {
+            setActivity(linkedData);
+            // Determine stats inclusion: if override is set, use !excluded; otherwise default true
+            if (linkedData.stats_override) {
+              setStatsIncluded(!linkedData.stats_excluded);
+            } else {
+              setStatsIncluded(true);
+            }
+          }
 
         } catch (e) {
           console.log("Error refreshing details:", e);
@@ -68,6 +79,17 @@ export default function WorkoutDetailsScreen() {
       return () => { isActive = false; };
     }, [workoutId])
   );
+
+  const handleToggleStats = async (value: boolean) => {
+    if (!activity?.id) return;
+    setStatsIncluded(value);
+    try {
+      await toggleActivityStats(authFetch, activity.id, value);
+    } catch (e) {
+      console.log('Failed to toggle activity stats:', e);
+      setStatsIncluded(!value);
+    }
+  };
 
   const handleDelete = () => {
     Alert.alert("Delete Workout", "Are you sure?", [
@@ -130,6 +152,24 @@ export default function WorkoutDetailsScreen() {
                 useGraphView ? <StatsGraphs stats={uiStats} /> : <StatsGrid stats={uiStats} />
             )}
         </View>
+
+        {activity?.id && (
+          <View style={[styles.statsToggleRow, { borderTopColor: colors.border }]}>
+            <View>
+              <Text style={[{ fontSize: 15, fontWeight: '500', color: colors.textPrimary }]}>
+                Include in training stats
+              </Text>
+              <Text style={[{ fontSize: 12, color: '#8E8E93', marginTop: 2 }]}>
+                Excluded activities won't count toward metrics
+              </Text>
+            </View>
+            <Switch
+              value={statsIncluded}
+              onValueChange={handleToggleStats}
+              trackColor={{ false: '#ccc', true: colors.primary }}
+            />
+          </View>
+        )}
 
         {workout.description ? (
             <View style={styles.descSection}>
@@ -195,6 +235,15 @@ const styles = StyleSheet.create({
     sectionLabel: { fontSize: 13, fontWeight: '700', color: '#8E8E93', textTransform: 'uppercase', marginBottom: 12 },
 
     statsContainer: { marginBottom: 24 },
+
+    statsToggleRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
+        marginBottom: 16,
+        borderTopWidth: 1,
+    },
 
     descSection: { marginBottom: 20 },
     description: { fontSize: 16, lineHeight: 24 },
