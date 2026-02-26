@@ -41,10 +41,19 @@ async def initialize_tracked_types(user_id: str) -> list[str]:
 
 
 def is_activity_included(activity: dict, tracked_types: list[str]) -> bool:
-    """In-memory filter: determine if an activity should count toward stats."""
+    """In-memory filter: determine if an activity should count toward stats.
+
+    When tracked_types is empty, no filtering is configured — include everything.
+    Activities without original_activity_type (pre-migration) are also included.
+    """
     if activity.get("stats_override"):
         return not activity.get("stats_excluded", False)
-    return activity.get("original_activity_type") in tracked_types
+    if not tracked_types:
+        return True
+    original_type = activity.get("original_activity_type")
+    if not original_type:
+        return True
+    return original_type in tracked_types
 
 
 async def get_activities_for_stats(
