@@ -113,7 +113,7 @@ async def get_dashboard(user_id: str) -> dict:
         recent_activities.append({
             "id": a["id"],
             "name": name,
-            "activity_type": a.get("activity_type"),
+            "activity_type": a.get("original_activity_type") or a.get("activity_type"),
             "original_activity_type": a.get("original_activity_type"),
             "start_time": a.get("start_time"),
             "distance_meters": a.get("distance_meters") or 0,
@@ -384,4 +384,4 @@ def _extract_activity_name(activity: dict) -> str:
                 return blob.get("name", "Activity")
         except (json.JSONDecodeError, TypeError):
             pass
-    return activity.get("activity_type", "Activity").replace("_", " ").title()
+    return (activity.get("original_activity_type") or activity.get("activity_type") or "Activity").replace("_", " ").title()

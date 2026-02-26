@@ -119,7 +119,6 @@ def _build_activity_record(user_id: str, data: dict) -> dict:
         "user_id": user_id,
         "source_type": "strava",
         "source_id": str(data["id"]),
-        "activity_type": _map_activity_type(data.get("type", "")),
         "original_activity_type": data.get("type", "Workout"),
         "start_time": data["start_date"],
         "distance_meters": data.get("distance"),
@@ -185,7 +184,7 @@ async def _handle_activity_create(user_id: str, activity_id: int):
 
     analytics_track(user_id, "strava_activity_synced", {
         "activity_id": activity_id,
-        "activity_type": activity_record["activity_type"],
+        "activity_type": activity_record["original_activity_type"],
     })
 
     # Check if workout update reminder should be sent
