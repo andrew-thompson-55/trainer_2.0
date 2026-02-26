@@ -57,6 +57,7 @@ export default function TabLayout() {
         name="calendar"
         options={{
           title: strings['tabs.calendar'],
+          href: Platform.OS === 'web' ? null : undefined,
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name={focused ? 'calendar' : 'calendar-outline'} color={color} />
           ),

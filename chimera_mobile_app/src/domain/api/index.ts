@@ -7,3 +7,4 @@ export * as chat from './chat';
 export * as strava from './strava';
 export * as user from './user';
 export * as dashboard from './dashboard';
+export * as plan from './plan';

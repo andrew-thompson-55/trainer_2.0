@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date as date_type
 from services import workout_service
+from services import plan_action_service
 from services.user_settings_service import update_coach_notes, get_user_settings
 from services.activity_filter_service import is_activity_included
 from schemas import WorkoutCreate
@@ -157,6 +158,148 @@ tools_schema = [
                         },
                     },
                     "required": ["note"],
+                },
+            },
+            {
+                "name": "move_workout_to_date",
+                "description": "Move an existing workout from one date to another. Finds the workout by its current date and optionally activity type.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target_date_iso": {
+                            "type": "string",
+                            "description": "The CURRENT date of the workout (YYYY-MM-DD).",
+                        },
+                        "new_date_iso": {
+                            "type": "string",
+                            "description": "The NEW date to move the workout to (YYYY-MM-DD).",
+                        },
+                        "activity_type": {
+                            "type": "string",
+                            "description": "Optional: activity type to identify the specific workout (run, bike, swim, strength, other).",
+                        },
+                    },
+                    "required": ["target_date_iso", "new_date_iso"],
+                },
+            },
+            {
+                "name": "duplicate_workout_to_date",
+                "description": "Copy an existing workout to a new date. The original remains unchanged.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "target_date_iso": {
+                            "type": "string",
+                            "description": "The date of the workout to copy (YYYY-MM-DD).",
+                        },
+                        "new_date_iso": {
+                            "type": "string",
+                            "description": "The date to place the copy (YYYY-MM-DD).",
+                        },
+                        "activity_type": {
+                            "type": "string",
+                            "description": "Optional: activity type to identify the specific workout.",
+                        },
+                    },
+                    "required": ["target_date_iso", "new_date_iso"],
+                },
+            },
+            {
+                "name": "duplicate_week",
+                "description": "Copy all workouts from one week to another. Preserves day-of-week offsets.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "source_week_start": {
+                            "type": "string",
+                            "description": "Monday of the source week (YYYY-MM-DD).",
+                        },
+                        "target_week_start": {
+                            "type": "string",
+                            "description": "Monday of the target week (YYYY-MM-DD).",
+                        },
+                    },
+                    "required": ["source_week_start", "target_week_start"],
+                },
+            },
+            {
+                "name": "clear_week",
+                "description": "Delete all planned workouts in a given week.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "week_start": {
+                            "type": "string",
+                            "description": "Monday of the week to clear (YYYY-MM-DD).",
+                        },
+                    },
+                    "required": ["week_start"],
+                },
+            },
+            {
+                "name": "create_training_phase",
+                "description": "Create a new training phase (e.g., base building, peak, taper) on the athlete's plan.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "description": "Phase title."},
+                        "phase_type": {
+                            "type": "string",
+                            "enum": ["base", "build", "peak", "taper", "recovery", "race", "custom"],
+                            "description": "Type of training phase.",
+                        },
+                        "start_date": {"type": "string", "description": "Phase start (YYYY-MM-DD)."},
+                        "end_date": {"type": "string", "description": "Phase end (YYYY-MM-DD)."},
+                        "notes": {"type": "string", "description": "Optional notes about the phase."},
+                    },
+                    "required": ["title", "phase_type", "start_date", "end_date"],
+                },
+            },
+            {
+                "name": "update_training_phase",
+                "description": "Update an existing training phase by its ID.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "phase_id": {"type": "string", "description": "UUID of the phase to update."},
+                        "title": {"type": "string"},
+                        "phase_type": {
+                            "type": "string",
+                            "enum": ["base", "build", "peak", "taper", "recovery", "race", "custom"],
+                        },
+                        "start_date": {"type": "string"},
+                        "end_date": {"type": "string"},
+                        "notes": {"type": "string"},
+                    },
+                    "required": ["phase_id"],
+                },
+            },
+            {
+                "name": "delete_training_phase",
+                "description": "Delete a training phase by its ID.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "phase_id": {"type": "string", "description": "UUID of the phase to delete."},
+                    },
+                    "required": ["phase_id"],
+                },
+            },
+            {
+                "name": "apply_template",
+                "description": "Apply a saved plan template starting on a given date.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "template_id": {"type": "string", "description": "UUID of the template to apply."},
+                        "start_date": {"type": "string", "description": "Date to start applying the template (YYYY-MM-DD)."},
+                        "detail_level": {
+                            "type": "string",
+                            "enum": ["full", "structure"],
+                            "description": "Level of detail: 'full' includes descriptions, 'structure' is titles only.",
+                        },
+                    },
+                    "required": ["template_id", "start_date"],
                 },
             },
         ]
@@ -445,6 +588,113 @@ async def execute_tool_call(function_name, args, user_id: str):
     # 8. SAVE COACH NOTE
     elif function_name == "save_coach_note":
         result = await update_coach_notes(user_id, args["note"])
+        return result
+
+    # 9. MOVE WORKOUT TO DATE
+    elif function_name == "move_workout_to_date":
+        target = await _find_workout_on_day(
+            args["target_date_iso"], user_id, args.get("activity_type")
+        )
+        if not target:
+            return {"status": "error", "message": "No workout found on that date to move."}
+
+        new_date = date_type.fromisoformat(args["new_date_iso"])
+        result = await plan_action_service.move_workout(
+            target["id"], new_date, user_id, source="agent"
+        )
+        return {
+            "status": "success",
+            "action": "moved",
+            "workout": {"id": target["id"], "title": target["title"]},
+            "from_date": args["target_date_iso"],
+            "to_date": args["new_date_iso"],
+        }
+
+    # 10. DUPLICATE WORKOUT TO DATE
+    elif function_name == "duplicate_workout_to_date":
+        target = await _find_workout_on_day(
+            args["target_date_iso"], user_id, args.get("activity_type")
+        )
+        if not target:
+            return {"status": "error", "message": "No workout found on that date to duplicate."}
+
+        target_date = date_type.fromisoformat(args["new_date_iso"])
+        result = await plan_action_service.duplicate_workout(
+            target["id"], target_date, user_id, source="agent"
+        )
+        return {
+            "status": "success",
+            "action": "duplicated",
+            "original": {"id": target["id"], "title": target["title"]},
+            "new_id": result["id"],
+            "to_date": args["new_date_iso"],
+        }
+
+    # 11. DUPLICATE WEEK
+    elif function_name == "duplicate_week":
+        source_start = date_type.fromisoformat(args["source_week_start"])
+        target_start = date_type.fromisoformat(args["target_week_start"])
+        result = await plan_action_service.duplicate_week(
+            source_start, target_start, user_id, source="agent"
+        )
+        return result
+
+    # 12. CLEAR WEEK
+    elif function_name == "clear_week":
+        week_start = date_type.fromisoformat(args["week_start"])
+        result = await plan_action_service.clear_week(
+            week_start, user_id, source="agent"
+        )
+        return result
+
+    # 13. CREATE TRAINING PHASE
+    elif function_name == "create_training_phase":
+        phase_data = {
+            "title": args["title"],
+            "phase_type": args["phase_type"],
+            "start_date": args["start_date"],
+            "end_date": args["end_date"],
+        }
+        if "notes" in args:
+            phase_data["notes"] = args["notes"]
+        result = await plan_action_service.create_phase(
+            phase_data, user_id, source="agent"
+        )
+        return {
+            "status": "success",
+            "action": "created_phase",
+            "phase": {"id": result["id"], "title": result["title"]},
+        }
+
+    # 14. UPDATE TRAINING PHASE
+    elif function_name == "update_training_phase":
+        phase_id = args["phase_id"]
+        updates = {k: v for k, v in args.items() if k != "phase_id"}
+        if not updates:
+            return {"status": "error", "message": "No changes requested."}
+        result = await plan_action_service.update_phase(
+            phase_id, updates, user_id, source="agent"
+        )
+        return {
+            "status": "success",
+            "action": "updated_phase",
+            "phase": {"id": result["id"], "title": result["title"]},
+        }
+
+    # 15. DELETE TRAINING PHASE
+    elif function_name == "delete_training_phase":
+        result = await plan_action_service.delete_phase(
+            args["phase_id"], user_id, source="agent"
+        )
+        return result
+
+    # 16. APPLY TEMPLATE
+    elif function_name == "apply_template":
+        start_date = date_type.fromisoformat(args["start_date"])
+        detail_level = args.get("detail_level", "full")
+        result = await plan_action_service.apply_template(
+            args["template_id"], start_date, detail_level, user_id, source="agent"
+        )
         return result
 
     return {"status": "error", "message": f"Unknown function: {function_name}"}

@@ -195,3 +195,62 @@ class PlannedWorkoutImport(BaseModel):
 
 class PlanImportRequest(BaseModel):
     workouts: list[PlannedWorkoutImport] = Field(..., min_length=1)
+
+
+# --- Training Phase Models ---
+class PhaseCreate(BaseModel):
+    title: str
+    phase_type: Literal["base", "build", "peak", "taper", "recovery", "race", "custom"] = "custom"
+    start_date: date_type
+    end_date: date_type
+    parent_phase_id: Optional[UUID] = None
+    color: Optional[str] = None
+    sort_order: int = 0
+    notes: Optional[str] = None
+
+
+class PhaseUpdate(BaseModel):
+    title: Optional[str] = None
+    phase_type: Optional[Literal["base", "build", "peak", "taper", "recovery", "race", "custom"]] = None
+    start_date: Optional[date_type] = None
+    end_date: Optional[date_type] = None
+    parent_phase_id: Optional[UUID] = None
+    color: Optional[str] = None
+    sort_order: Optional[int] = None
+    notes: Optional[str] = None
+
+
+# --- Plan Template Models ---
+class TemplateCreate(BaseModel):
+    title: str
+    template_type: Literal["workout", "week", "phase"] = "workout"
+    content: Dict[str, Any] = {}
+    tags: list[str] = []
+
+
+# --- Plan Action Models ---
+class MoveWorkoutRequest(BaseModel):
+    new_date: date_type
+
+
+class DuplicateWorkoutRequest(BaseModel):
+    target_date: date_type
+
+
+class WeekActionRequest(BaseModel):
+    source_week_start: date_type
+    target_week_start: date_type
+
+
+class ClearWeekRequest(BaseModel):
+    week_start: date_type
+
+
+class SaveWeekTemplateRequest(BaseModel):
+    week_start: date_type
+    title: str
+
+
+class ApplyTemplateRequest(BaseModel):
+    start_date: date_type
+    detail_level: Literal["full", "structure"] = "full"

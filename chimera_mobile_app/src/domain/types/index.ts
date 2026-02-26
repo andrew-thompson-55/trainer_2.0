@@ -44,3 +44,11 @@ export type {
   UpcomingWorkout,
   DashboardData,
 } from './dashboard';
+
+export type {
+  TrainingPhase,
+  PlanTemplate,
+  AgentAction,
+  CalendarActivity,
+  CalendarData,
+} from './plan';

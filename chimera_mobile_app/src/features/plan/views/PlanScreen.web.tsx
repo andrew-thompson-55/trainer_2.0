@@ -1,334 +1,383 @@
-// PlanScreen - Web version (Strategic Command Center)
-// 7-column weekly grid with keyboard navigation and detailed overview
+// PlanScreen.web.tsx - Unified Training Plan Page
+// Drag-drop calendar grid with phases, templates, and agent action logging
+// Uses HTML/React DOM for best dnd-kit compatibility (Principle 5)
 
-import React, { useMemo } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { format, parseISO, startOfWeek, addDays, isSameDay } from 'date-fns';
+import React, { useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { usePlan } from '../hooks/usePlan';
+import { format, addWeeks } from 'date-fns';
+import {
+  DndContext,
+  DragEndEvent,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { COLORS, FONT, SPACING } from '@features/web-dashboard/styles';
+import { useTrainingPlan } from '../hooks/useTrainingPlan';
+import { PlanHeader } from '../components/PlanHeader';
+import { PhaseBarArea } from '../components/PhaseBar';
+import { WeekRow } from '../components/WeekRow';
+import { TrashZone } from '../components/TrashZone';
+import { SidePanel } from '../components/SidePanel';
+import { TemplateDialog } from '../components/TemplateDialog';
 import type { Workout } from '@domain/types';
-
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+import type { TrainingPhase } from '@domain/types/plan';
 
 export default function PlanScreen() {
   const router = useRouter();
-  const { sections, refreshing, onRefresh, toggleStatus } = usePlan();
+  const plan = useTrainingPlan();
 
-  // Group workouts by week for 7-column layout
-  const weeks = useMemo(() => {
-    const weekMap = new Map<string, Map<string, Workout[]>>();
-    const today = new Date();
+  const [isDragging, setIsDragging] = useState(false);
+  const [sidePanelMode, setSidePanelMode] = useState<'templates' | 'agent-log' | null>(null);
+  const [templateDialog, setTemplateDialog] = useState<{
+    templateId: string;
+    templateName: string;
+    targetDate: string;
+  } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
-    sections.forEach((section) => {
-      const date = new Date(section.title + 'T12:00:00');
-      const weekStart = startOfWeek(date, { weekStartsOn: 1 }); // Monday
-      const weekKey = format(weekStart, 'yyyy-MM-dd');
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
 
-      if (!weekMap.has(weekKey)) {
-        weekMap.set(weekKey, new Map());
+  // --- Toast helper ---
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  // --- Drag handlers ---
+  const handleDragStart = useCallback((_event: DragStartEvent) => {
+    setIsDragging(true);
+  }, []);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    setIsDragging(false);
+    const { active, over } = event;
+    if (!over || !active.data.current) return;
+
+    const source = active.data.current;
+    const dest = over.data.current;
+    if (!dest) return;
+
+    // Workout dropped on trash
+    if (dest.type === 'trash' && source.type === 'workout') {
+      const workout = source.workout as Workout;
+      try {
+        await plan.deleteWorkout(workout.id);
+        showToast(`Deleted "${workout.title}"`);
+      } catch {
+        showToast('Failed to delete workout');
       }
+      return;
+    }
 
-      const week = weekMap.get(weekKey)!;
-      week.set(section.title, section.data);
+    // Workout dropped on a day cell
+    if (dest.type === 'day' && source.type === 'workout') {
+      const workout = source.workout as Workout;
+      const newDate = dest.dateKey as string;
+      const currentDate = format(new Date(workout.start_time), 'yyyy-MM-dd');
+      if (currentDate === newDate) return; // same day, no-op
+
+      // Check if Alt/Option held for duplicate
+      const altHeld = (event.activatorEvent as PointerEvent)?.altKey;
+
+      try {
+        if (altHeld) {
+          await plan.duplicateWorkout(workout.id, newDate);
+          showToast(`Duplicated "${workout.title}" to ${newDate}`);
+        } else {
+          await plan.moveWorkout(workout.id, newDate);
+          showToast(`Moved "${workout.title}" to ${newDate}`);
+        }
+      } catch {
+        showToast('Failed to update workout');
+      }
+      return;
+    }
+  }, [plan, showToast]);
+
+  // --- Workout context actions ---
+  const handleEditWorkout = useCallback((workout: Workout) => {
+    router.push({ pathname: '/edit_workout', params: { id: workout.id } });
+  }, [router]);
+
+  const handleDuplicateWorkout = useCallback(async (workout: Workout) => {
+    const targetDate = window.prompt('Duplicate to which date? (YYYY-MM-DD)');
+    if (!targetDate) return;
+    try {
+      await plan.duplicateWorkout(workout.id, targetDate);
+      showToast(`Duplicated "${workout.title}"`);
+    } catch {
+      showToast('Failed to duplicate');
+    }
+  }, [plan, showToast]);
+
+  const handleDeleteWorkout = useCallback(async (workout: Workout) => {
+    try {
+      await plan.deleteWorkout(workout.id);
+      showToast(`Deleted "${workout.title}"`);
+    } catch {
+      showToast('Failed to delete');
+    }
+  }, [plan, showToast]);
+
+  const handleAddWorkout = useCallback((date: string) => {
+    router.push({ pathname: '/add_workout', params: { date } });
+  }, [router]);
+
+  // --- Week actions ---
+  const handleDuplicateWeek = useCallback(async (weekStart: string) => {
+    const target = window.prompt('Duplicate to which week start? (YYYY-MM-DD, Monday)');
+    if (!target) return;
+    try {
+      await plan.duplicateWeek(weekStart, target);
+      showToast('Week duplicated');
+    } catch {
+      showToast('Failed to duplicate week');
+    }
+  }, [plan, showToast]);
+
+  const handleClearWeek = useCallback(async (weekStart: string) => {
+    if (!window.confirm(`Clear all workouts for week of ${weekStart}?`)) return;
+    try {
+      await plan.clearWeek(weekStart);
+      showToast('Week cleared');
+    } catch {
+      showToast('Failed to clear week');
+    }
+  }, [plan, showToast]);
+
+  const handleSaveTemplate = useCallback(async (weekStart: string) => {
+    const title = window.prompt('Template name:');
+    if (!title) return;
+    try {
+      await plan.saveWeekAsTemplate(weekStart, title);
+      showToast(`Saved template "${title}"`);
+    } catch {
+      showToast('Failed to save template');
+    }
+  }, [plan, showToast]);
+
+  // --- Phase actions ---
+  const handleEditPhase = useCallback((phase: TrainingPhase) => {
+    const newTitle = window.prompt('Phase title:', phase.title);
+    if (!newTitle || newTitle === phase.title) return;
+    plan.updatePhase(phase.id, { title: newTitle }).catch(() => showToast('Failed to update phase'));
+  }, [plan, showToast]);
+
+  const handleDeletePhase = useCallback(async (phase: TrainingPhase) => {
+    if (!window.confirm(`Delete phase "${phase.title}"?`)) return;
+    try {
+      await plan.deletePhase(phase.id);
+      showToast('Phase deleted');
+    } catch {
+      showToast('Failed to delete phase');
+    }
+  }, [plan, showToast]);
+
+  // --- Template actions ---
+  const handleApplyTemplate = useCallback((templateId: string) => {
+    const tmpl = plan.templates.find(t => t.id === templateId);
+    if (!tmpl) return;
+    const startDate = window.prompt('Apply starting on? (YYYY-MM-DD)');
+    if (!startDate) return;
+    setTemplateDialog({
+      templateId,
+      templateName: tmpl.title,
+      targetDate: startDate,
     });
+  }, [plan.templates]);
 
-    // Convert to array and sort by week
-    return Array.from(weekMap.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([weekKey, days]) => ({ weekKey, days }));
-  }, [sections]);
+  const handleTemplateConfirm = useCallback(async (
+    detailLevel: 'full' | 'structure',
+    clearExisting: boolean
+  ) => {
+    if (!templateDialog) return;
+    try {
+      if (clearExisting) {
+        await plan.clearWeek(templateDialog.targetDate);
+      }
+      await plan.applyTemplate(templateDialog.templateId, templateDialog.targetDate, detailLevel);
+      showToast('Template applied');
+    } catch {
+      showToast('Failed to apply template');
+    }
+    setTemplateDialog(null);
+  }, [templateDialog, plan, showToast]);
 
-  const getActivityColor = (type: string, status: string) => {
-    if (status === 'completed') return '#10b981';
-    const colors: Record<string, string> = {
-      run: '#3b82f6',
-      bike: '#f59e0b',
-      swim: '#06b6d4',
-      strength: '#8b5cf6',
-      other: '#6b7280',
-    };
-    return colors[type] || colors.other;
-  };
+  const handleDeleteTemplate = useCallback(async (templateId: string) => {
+    if (!window.confirm('Delete this template?')) return;
+    try {
+      const { deleteTemplate } = await import('@domain/api/plan');
+      const { authFetch } = await import('@infra/fetch/auth-fetch');
+      await deleteTemplate(authFetch, templateId);
+      await plan.refreshTemplates();
+      showToast('Template deleted');
+    } catch {
+      showToast('Failed to delete template');
+    }
+  }, [plan, showToast]);
+
+  // --- Side panel ---
+  const toggleTemplates = useCallback(() => {
+    setSidePanelMode(prev => prev === 'templates' ? null : 'templates');
+  }, []);
+
+  const toggleAgentLog = useCallback(() => {
+    setSidePanelMode(prev => prev === 'agent-log' ? null : 'agent-log');
+  }, []);
+
+  // Phase bar area sizing
+  const totalDays = plan.weeks.length * 7;
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.titleText}>Training Plan</Text>
-          <Text style={styles.subtitle}>Strategic Command Center</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={styles.syncButton}
-            onPress={onRefresh}
-            disabled={refreshing}
+    <div style={styles.container}>
+      <PlanHeader
+        currentStartDate={plan.currentStartDate}
+        onNavigateWeeks={plan.navigateWeeks}
+        onGoToToday={plan.goToToday}
+        onAddWorkout={() => router.push('/add_workout')}
+        showTemplates={sidePanelMode === 'templates'}
+        onToggleTemplates={toggleTemplates}
+        showAgentLog={sidePanelMode === 'agent-log'}
+        onToggleAgentLog={toggleAgentLog}
+      />
+
+      <div style={styles.body}>
+        <div style={styles.main}>
+          {/* Phase bars */}
+          <PhaseBarArea
+            phases={plan.phases}
+            viewStartDate={plan.currentStartDate}
+            totalDays={totalDays}
+            onEditPhase={handleEditPhase}
+            onDeletePhase={handleDeletePhase}
+          />
+
+          {/* Calendar grid */}
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
           >
-            <Text style={styles.syncText}>
-              {refreshing ? '⟳ Syncing...' : '⟳ Sync'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => router.push('/add_workout')}
-          >
-            <Text style={styles.addText}>+ Add Workout</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+            <div style={styles.grid}>
+              {plan.weeks.map(week => (
+                <WeekRow
+                  key={week.weekKey}
+                  week={week}
+                  onEditWorkout={handleEditWorkout}
+                  onDuplicateWorkout={handleDuplicateWorkout}
+                  onDeleteWorkout={handleDeleteWorkout}
+                  onAddWorkout={handleAddWorkout}
+                  onDuplicateWeek={handleDuplicateWeek}
+                  onClearWeek={handleClearWeek}
+                  onSaveTemplate={handleSaveTemplate}
+                />
+              ))}
+            </div>
 
-      {/* 7-Column Weekly Grid */}
-      <ScrollView style={styles.content}>
-        {weeks.map(({ weekKey, days }) => {
-          const weekStart = new Date(weekKey + 'T12:00:00');
+            <TrashZone active={isDragging} />
+          </DndContext>
 
-          return (
-            <View key={weekKey} style={styles.weekContainer}>
-              {/* Week Header */}
-              <Text style={styles.weekHeader}>
-                Week of {format(weekStart, 'MMM d, yyyy')}
-              </Text>
+          {/* Loading / Error */}
+          {plan.loading && (
+            <div style={styles.loading}>Loading...</div>
+          )}
+          {plan.error && (
+            <div style={styles.error}>{plan.error}</div>
+          )}
+        </div>
 
-              {/* 7 Day Columns */}
-              <View style={styles.grid}>
-                {DAYS.map((dayName, index) => {
-                  const currentDate = addDays(weekStart, index);
-                  const dateKey = format(currentDate, 'yyyy-MM-dd');
-                  const dayWorkouts = days.get(dateKey) || [];
-                  const isToday = isSameDay(currentDate, new Date());
+        {/* Side panel */}
+        <SidePanel
+          mode={sidePanelMode}
+          templates={plan.templates}
+          agentActions={plan.agentActions}
+          onClose={() => setSidePanelMode(null)}
+          onDeleteTemplate={handleDeleteTemplate}
+          onApplyTemplate={handleApplyTemplate}
+          onRevertAction={async (id) => {
+            try {
+              await plan.revertAgentAction(id);
+              showToast('Action reverted');
+            } catch {
+              showToast('Failed to revert');
+            }
+          }}
+        />
+      </div>
 
-                  return (
-                    <View
-                      key={dateKey}
-                      style={[styles.dayColumn, isToday && styles.todayColumn]}
-                    >
-                      {/* Day Header */}
-                      <View style={styles.dayHeader}>
-                        <Text style={[styles.dayName, isToday && styles.todayText]}>
-                          {dayName}
-                        </Text>
-                        <Text style={[styles.dayDate, isToday && styles.todayText]}>
-                          {format(currentDate, 'd')}
-                        </Text>
-                      </View>
+      {/* Template application dialog */}
+      {templateDialog && (
+        <TemplateDialog
+          templateName={templateDialog.templateName}
+          targetDate={templateDialog.targetDate}
+          onConfirm={handleTemplateConfirm}
+          onCancel={() => setTemplateDialog(null)}
+        />
+      )}
 
-                      {/* Workouts for this day */}
-                      <View style={styles.dayWorkouts}>
-                        {dayWorkouts.length === 0 ? (
-                          <Text style={styles.restDay}>Rest</Text>
-                        ) : (
-                          dayWorkouts.map((workout) => (
-                            <TouchableOpacity
-                              key={workout.id}
-                              style={[
-                                styles.workoutCard,
-                                {
-                                  borderLeftColor: getActivityColor(
-                                    workout.activity_type,
-                                    workout.status
-                                  ),
-                                },
-                              ]}
-                              onPress={() =>
-                                router.push({
-                                  pathname: '/workout_details',
-                                  params: { ...workout },
-                                })
-                              }
-                            >
-                              <View style={styles.workoutHeader}>
-                                <Text style={styles.workoutTime}>
-                                  {format(parseISO(workout.start_time), 'h:mm a')}
-                                </Text>
-                                <TouchableOpacity
-                                  onPress={(e) => {
-                                    e.stopPropagation();
-                                    toggleStatus(workout);
-                                  }}
-                                  style={styles.statusBadge}
-                                >
-                                  <Text style={styles.statusText}>
-                                    {workout.status === 'completed' ? '✓' : '○'}
-                                  </Text>
-                                </TouchableOpacity>
-                              </View>
-                              <Text style={styles.workoutTitle} numberOfLines={2}>
-                                {workout.title}
-                              </Text>
-                              <Text style={styles.workoutType}>
-                                {workout.activity_type}
-                              </Text>
-                            </TouchableOpacity>
-                          ))
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          );
-        })}
-      </ScrollView>
-    </View>
+      {/* Toast */}
+      {toast && (
+        <div style={styles.toast}>{toast}</div>
+      )}
+    </div>
   );
 }
 
-const styles = StyleSheet.create({
+const styles: Record<string, React.CSSProperties> = {
   container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  titleText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 2,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  syncButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
-  },
-  syncText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  addButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    backgroundColor: '#3b82f6',
-  },
-  addText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-  },
-  weekContainer: {
-    marginBottom: 32,
-  },
-  weekHeader: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 16,
-  },
-  grid: {
-    flexDirection: 'row',
-    gap: 12,
-    minHeight: 200,
-  },
-  dayColumn: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100vh',
+    backgroundColor: COLORS.bg,
+    color: COLORS.text,
+    fontFamily: FONT.sans,
     overflow: 'hidden',
   },
-  todayColumn: {
-    borderColor: '#3b82f6',
-    borderWidth: 2,
+  body: {
+    flex: 1,
+    display: 'flex',
+    overflow: 'hidden',
   },
-  dayHeader: {
-    padding: 12,
-    backgroundColor: '#f9fafb',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    alignItems: 'center',
+  main: {
+    flex: 1,
+    overflow: 'auto',
+    padding: SPACING.md,
   },
-  dayName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6b7280',
-    textTransform: 'uppercase',
+  grid: {
+    display: 'flex',
+    flexDirection: 'column',
   },
-  dayDate: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginTop: 2,
-  },
-  todayText: {
-    color: '#3b82f6',
-  },
-  dayWorkouts: {
-    padding: 8,
-    gap: 8,
-  },
-  restDay: {
-    textAlign: 'center',
-    padding: 20,
+  loading: {
+    textAlign: 'center' as const,
+    color: COLORS.textDim,
+    fontFamily: FONT.mono,
     fontSize: 13,
-    color: '#9ca3af',
-    fontStyle: 'italic',
+    padding: SPACING.xl,
   },
-  workoutCard: {
-    backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 6,
-    borderLeftWidth: 3,
-    borderColor: '#e5e7eb',
-    minHeight: 80,
-  },
-  workoutHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  workoutTime: {
-    fontSize: 11,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  statusBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#f3f4f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusText: {
-    fontSize: 11,
-    color: '#374151',
-  },
-  workoutTitle: {
+  error: {
+    textAlign: 'center' as const,
+    color: COLORS.red,
+    fontFamily: FONT.mono,
     fontSize: 13,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
+    padding: SPACING.xl,
   },
-  workoutType: {
-    fontSize: 11,
-    color: '#6b7280',
-    textTransform: 'capitalize',
+  toast: {
+    position: 'fixed',
+    bottom: 24,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    backgroundColor: COLORS.surface,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: 8,
+    padding: '10px 20px',
+    color: COLORS.text,
+    fontFamily: FONT.mono,
+    fontSize: 13,
+    zIndex: 300,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
   },
-});
+};

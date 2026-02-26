@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Chimera is an AI-powered endurance training coach that integrates with Strava for workout data, uses Google Gemini for AI analysis, and schedules workouts to Google Calendar.
 
+the project principles are in Principles.md
+
 **Monorepo Structure:**
 - `chimera_api/` - FastAPI backend (Python 3.12+)
 - `chimera_mobile_app/` - React Native mobile app (Expo, TypeScript)
