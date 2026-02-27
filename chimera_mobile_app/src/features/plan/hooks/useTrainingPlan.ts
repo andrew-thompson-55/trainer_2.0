@@ -111,9 +111,18 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
   const weekStartDay = options?.weekStartDay ?? 1;
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  // Track the absolute start date of our loaded range
+  // rangeStart / totalWeeks define the visible window.
+  // They are managed by refs for scroll-triggered updates to avoid
+  // re-triggering the initial-load effect and creating an infinite loop.
   const [rangeStart, setRangeStart] = useState(() => getWeekStart(new Date(), weekStartDay));
   const [totalWeeks, setTotalWeeks] = useState(INITIAL_WEEKS);
+  const rangeStartRef = useRef(rangeStart);
+  const totalWeeksRef = useRef(totalWeeks);
+
+  // Keep refs in sync with state
+  useEffect(() => { rangeStartRef.current = rangeStart; }, [rangeStart]);
+  useEffect(() => { totalWeeksRef.current = totalWeeks; }, [totalWeeks]);
+
   const [rawWorkouts, setRawWorkouts] = useState<Workout[]>([]);
   const [phases, setPhases] = useState<TrainingPhase[]>([]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
@@ -124,6 +133,8 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
   const fetchRef = useRef(0);
   const loadingMoreRef = useRef(false);
   const pastWeeksLoaded = useRef(0);
+  // Flag to suppress the top sentinel on initial load (scroll starts at top)
+  const initialLoadDone = useRef(false);
 
   // Refs for scroll and sentinels
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -162,7 +173,6 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
           const newWorkouts = (data.workouts || []).filter((w: Workout) => !existingIds.has(w.id));
           return [...prev, ...newWorkouts];
         });
-        // Merge phases
         setPhases(prev => {
           const existingIds = new Set(prev.map(p => p.id));
           const newPhases = (data.phases || []).filter((p: TrainingPhase) => !existingIds.has(p.id));
@@ -203,54 +213,69 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
     }
   }, []);
 
-  // Initial load
+  // Initial load — runs once on mount, then scroll handles the rest
   useEffect(() => {
-    fetchedRangesRef.current.clear();
-    pastWeeksLoaded.current = 0;
-    fetchCalendarRange(rangeStart, totalWeeks);
+    fetchCalendarRange(rangeStart, totalWeeks).then(() => {
+      initialLoadDone.current = true;
+      // After initial data loads, scroll to today's week
+      requestAnimationFrame(() => {
+        currentWeekRef.current?.scrollIntoView({ block: 'center' });
+      });
+    });
     refreshTemplates();
     refreshAgentActions();
-  }, [rangeStart, totalWeeks, fetchCalendarRange, refreshTemplates, refreshAgentActions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Infinite scroll: observe sentinels
+  // This effect uses refs for rangeStart/totalWeeks so it does NOT
+  // re-run (and re-create the observer) when those values change.
   useEffect(() => {
     const topEl = topSentinelRef.current;
     const bottomEl = bottomSentinelRef.current;
-    if (!topEl || !bottomEl) return;
+    const scrollRoot = scrollContainerRef.current;
+    if (!topEl || !bottomEl || !scrollRoot) return;
 
     const observer = new IntersectionObserver((entries) => {
+      // Don't fire until the initial load has completed
+      if (!initialLoadDone.current) return;
+
       for (const entry of entries) {
         if (!entry.isIntersecting || loadingMoreRef.current) continue;
 
         if (entry.target === bottomEl) {
           // Load more future weeks
           loadingMoreRef.current = true;
-          const newEnd = addWeeks(rangeStart, totalWeeks);
+          const newEnd = addWeeks(rangeStartRef.current, totalWeeksRef.current);
           setTotalWeeks(prev => prev + LOAD_MORE_WEEKS);
+          totalWeeksRef.current += LOAD_MORE_WEEKS;
           fetchCalendarRange(newEnd, LOAD_MORE_WEEKS, true);
+
         } else if (entry.target === topEl && pastWeeksLoaded.current < MAX_PAST_WEEKS) {
           // Prepend past weeks
           loadingMoreRef.current = true;
-          const scrollContainer = scrollContainerRef.current;
-          const prevHeight = scrollContainer?.scrollHeight || 0;
+          const prevHeight = scrollRoot.scrollHeight;
 
-          const newStart = addWeeks(rangeStart, -LOAD_MORE_WEEKS);
+          const newStart = addWeeks(rangeStartRef.current, -LOAD_MORE_WEEKS);
           pastWeeksLoaded.current += LOAD_MORE_WEEKS;
+
+          // Update both state and ref immediately
+          rangeStartRef.current = newStart;
+          totalWeeksRef.current += LOAD_MORE_WEEKS;
           setRangeStart(newStart);
           setTotalWeeks(prev => prev + LOAD_MORE_WEEKS);
+
           fetchCalendarRange(newStart, LOAD_MORE_WEEKS, true).then(() => {
             // Restore scroll position after prepend
             requestAnimationFrame(() => {
-              if (scrollContainer) {
-                const newHeight = scrollContainer.scrollHeight;
-                scrollContainer.scrollTop += (newHeight - prevHeight);
-              }
+              const newHeight = scrollRoot.scrollHeight;
+              scrollRoot.scrollTop += (newHeight - prevHeight);
             });
           });
         }
       }
     }, {
-      root: scrollContainerRef.current,
+      root: scrollRoot,
       rootMargin: '200px',
       threshold: 0,
     });
@@ -258,12 +283,12 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
     observer.observe(topEl);
     observer.observe(bottomEl);
     return () => observer.disconnect();
-  }, [rangeStart, totalWeeks, fetchCalendarRange]);
+  }, [fetchCalendarRange]); // stable dep only
 
   const refreshData = useCallback(async () => {
     fetchedRangesRef.current.clear();
-    await fetchCalendarRange(rangeStart, totalWeeks);
-  }, [rangeStart, totalWeeks, fetchCalendarRange]);
+    await fetchCalendarRange(rangeStartRef.current, totalWeeksRef.current);
+  }, [fetchCalendarRange]);
 
   const goToToday = useCallback(() => {
     requestAnimationFrame(() => {
@@ -275,9 +300,15 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
     const newStart = addWeeks(getWeekStart(date, weekStartDay), -4); // center the target
     fetchedRangesRef.current.clear();
     pastWeeksLoaded.current = 0;
+    initialLoadDone.current = false;
+    rangeStartRef.current = newStart;
+    totalWeeksRef.current = INITIAL_WEEKS;
     setRangeStart(newStart);
     setTotalWeeks(INITIAL_WEEKS);
-  }, [weekStartDay]);
+    fetchCalendarRange(newStart, INITIAL_WEEKS).then(() => {
+      initialLoadDone.current = true;
+    });
+  }, [weekStartDay, fetchCalendarRange]);
 
   // Build weeks from raw data
   const weeks = buildWeeks(rangeStart, totalWeeks, rawWorkouts, todayStr, weekStartDay);
@@ -321,10 +352,8 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
   }, [refreshData]);
 
   const updateWorkout = useCallback(async (workoutId: string, data: Partial<Workout>) => {
-    // Optimistic update
     setRawWorkouts(prev => prev.map(w => w.id === workoutId ? { ...w, ...data } : w));
     try {
-      // Use the move endpoint if date changed, otherwise use a general update
       if (data.start_time) {
         const newDate = format(parseISO(data.start_time), 'yyyy-MM-dd');
         await planApi.moveWorkout(authFetch, workoutId, newDate);
