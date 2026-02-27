@@ -12,6 +12,7 @@ from typing import Any
 
 from db_client import supabase_admin
 from services import phase_service
+from services import gcal_service
 
 logger = logging.getLogger(__name__)
 
@@ -320,6 +321,10 @@ async def import_plan(user_id: str, raw_input: Any) -> dict:
             resp = supabase_admin.table("planned_workouts").insert(row).execute()
             if resp.data:
                 created.append(resp.data[0])
+                try:
+                    gcal_service.sync_workout_to_calendar(resp.data[0], is_new=True)
+                except Exception as e:
+                    logger.warning(f"GCal sync failed for '{title}': {e}")
         except Exception as e:
             logger.error(f"Failed to insert workout '{title}' on {entry_date}: {e}")
             skipped.append({"date": entry_date.isoformat(), "title": title, "reason": str(e)})
@@ -400,6 +405,10 @@ async def import_system_format(user_id: str, data: dict) -> dict:
                     )
                     if resp.data:
                         updated.append(resp.data[0])
+                        try:
+                            gcal_service.sync_workout_to_calendar(resp.data[0], is_new=False)
+                        except Exception as e:
+                            logger.warning(f"GCal sync failed for updated workout {clean_id}: {e}")
                 except Exception as e:
                     logger.error(f"Failed to update workout {clean_id}: {e}")
                     skipped.append({"id": workout_id, "reason": str(e)})
@@ -409,6 +418,10 @@ async def import_system_format(user_id: str, data: dict) -> dict:
                     resp = supabase_admin.table("planned_workouts").insert(row).execute()
                     if resp.data:
                         created.append(resp.data[0])
+                        try:
+                            gcal_service.sync_workout_to_calendar(resp.data[0], is_new=True)
+                        except Exception as e:
+                            logger.warning(f"GCal sync failed for new workout: {e}")
                 except Exception as e:
                     logger.error(f"Failed to insert workout from system format: {e}")
                     skipped.append({"id": workout_id, "reason": str(e)})
@@ -425,6 +438,10 @@ async def import_system_format(user_id: str, data: dict) -> dict:
                 resp = supabase_admin.table("planned_workouts").insert(row).execute()
                 if resp.data:
                     created.append(resp.data[0])
+                    try:
+                        gcal_service.sync_workout_to_calendar(resp.data[0], is_new=True)
+                    except Exception as e:
+                        logger.warning(f"GCal sync failed for new workout: {e}")
             except Exception as e:
                 logger.error(f"Failed to insert workout from system format: {e}")
                 skipped.append({"title": entry.get("title"), "reason": str(e)})

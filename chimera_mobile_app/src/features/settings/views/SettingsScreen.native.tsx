@@ -75,6 +75,9 @@ export default function SettingsScreen() {
   const [stravaConnected, setStravaConnected] = useState(false);
   const [stravaAthleteName, setStravaAthleteName] = useState<string>('');
 
+  // Google Calendar resync state
+  const [gcalSyncing, setGcalSyncing] = useState(false);
+
   // 1. HANDLE DEEP LINKS (Strava Redirect)
   const url = Linking.useURL();
 
@@ -289,6 +292,22 @@ export default function SettingsScreen() {
         }
       },
     ]);
+  };
+
+  const handleResyncGcal = async () => {
+    setGcalSyncing(true);
+    try {
+      const res = await authFetch('/v1/integrations/gcal/resync', { method: 'POST' });
+      const data = await res.json();
+      Alert.alert(
+        "Sync Complete",
+        `Created ${data.created}, updated ${data.updated} workouts.${data.errors ? ` ${data.errors} errors.` : ''}`
+      );
+    } catch (e) {
+      Alert.alert("Sync Failed", "Could not resync Google Calendar.");
+    } finally {
+      setGcalSyncing(false);
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -803,6 +822,26 @@ export default function SettingsScreen() {
         <Text style={[styles.helperText, { color: colors.textSecondary }]}>
           {loading ? strings['settings.stravaConnecting'] : strings['settings.stravaHelper']}
         </Text>
+
+        <View style={{ height: 12 }} />
+
+        {/* Google Calendar */}
+        <View style={[styles.row, { backgroundColor: colors.card }]}>
+          <View style={styles.rowLeft}>
+            <Ionicons name="calendar-outline" size={24} color={colors.primary} />
+            <View>
+              <Text style={[styles.rowText, { color: colors.textPrimary }]}>Google Calendar</Text>
+              <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                Sync workouts to your Training calendar
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity onPress={handleResyncGcal} disabled={gcalSyncing}>
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>
+              {gcalSyncing ? 'Syncing...' : 'Resync'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={{ height: 12 }} />
 

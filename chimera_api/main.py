@@ -23,7 +23,7 @@ from services import activity_filter_service
 from services.agent_service import run_agent
 from dependencies import get_current_user
 
-from routers import auth, strava, dashboard, plan
+from routers import auth, strava, dashboard, plan, integrations
 from package_loader import get_config
 from services.analytics_service import track as analytics_track, shutdown as analytics_shutdown
 
@@ -56,6 +56,7 @@ app.include_router(auth.router)
 app.include_router(strava.router)
 app.include_router(dashboard.router)
 app.include_router(plan.router)
+app.include_router(integrations.router)
 
 # --- GEMINI SETUP ---
 api_key = os.getenv("GEMINI_API_KEY")
