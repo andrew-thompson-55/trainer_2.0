@@ -4,7 +4,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { format, addWeeks } from 'date-fns';
+import { format, addWeeks, parseISO } from 'date-fns';
 import {
   DndContext,
   DragEndEvent,
@@ -21,6 +21,8 @@ import { WeekRow } from '../components/WeekRow';
 import { TrashZone } from '../components/TrashZone';
 import { SidePanel } from '../components/SidePanel';
 import { TemplateDialog } from '../components/TemplateDialog';
+import { ImportModal } from '../components/ImportModal';
+import { authFetch } from '@infra/fetch/auth-fetch';
 import type { Workout } from '@domain/types';
 import type { TrainingPhase } from '@domain/types/plan';
 
@@ -35,6 +37,7 @@ export default function PlanScreen() {
     templateName: string;
     targetDate: string;
   } | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -220,6 +223,15 @@ export default function PlanScreen() {
     }
   }, [plan, showToast]);
 
+  // --- Import ---
+  const handleImportSuccess = useCallback(async (firstDate: string | null) => {
+    await plan.refreshData();
+    if (firstDate) {
+      plan.navigateToDate(parseISO(firstDate));
+    }
+    showToast('Plan imported successfully');
+  }, [plan, showToast]);
+
   // --- Side panel ---
   const toggleTemplates = useCallback(() => {
     setSidePanelMode(prev => prev === 'templates' ? null : 'templates');
@@ -239,6 +251,7 @@ export default function PlanScreen() {
         onNavigateWeeks={plan.navigateWeeks}
         onGoToToday={plan.goToToday}
         onAddWorkout={() => router.push('/add_workout')}
+        onImport={() => setShowImportModal(true)}
         showTemplates={sidePanelMode === 'templates'}
         onToggleTemplates={toggleTemplates}
         showAgentLog={sidePanelMode === 'agent-log'}
@@ -308,6 +321,15 @@ export default function PlanScreen() {
           }}
         />
       </div>
+
+      {/* Import modal */}
+      {showImportModal && (
+        <ImportModal
+          onClose={() => setShowImportModal(false)}
+          onSuccess={handleImportSuccess}
+          authFetch={authFetch}
+        />
+      )}
 
       {/* Template application dialog */}
       {templateDialog && (

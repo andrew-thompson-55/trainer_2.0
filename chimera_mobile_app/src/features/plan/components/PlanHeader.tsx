@@ -7,6 +7,7 @@ interface PlanHeaderProps {
   onNavigateWeeks: (offset: number) => void;
   onGoToToday: () => void;
   onAddWorkout: () => void;
+  onImport: () => void;
   showTemplates: boolean;
   onToggleTemplates: () => void;
   showAgentLog: boolean;
@@ -18,6 +19,7 @@ export function PlanHeader({
   onNavigateWeeks,
   onGoToToday,
   onAddWorkout,
+  onImport,
   showTemplates,
   onToggleTemplates,
   showAgentLog,
@@ -37,6 +39,9 @@ export function PlanHeader({
         </div>
       </div>
       <div style={styles.right}>
+        <button style={styles.toggleBtn} onClick={onImport}>
+          Import
+        </button>
         <button
           style={{
             ...styles.toggleBtn,

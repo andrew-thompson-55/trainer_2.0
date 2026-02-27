@@ -30,6 +30,7 @@ interface UseTrainingPlanReturn {
   loading: boolean;
   error: string | null;
   navigateWeeks: (offset: number) => void;
+  navigateToDate: (date: Date) => void;
   goToToday: () => void;
   moveWorkout: (workoutId: string, newDate: string) => Promise<void>;
   duplicateWorkout: (workoutId: string, targetDate: string) => Promise<void>;
@@ -151,6 +152,10 @@ export function useTrainingPlan(): UseTrainingPlanReturn {
 
   const navigateWeeks = useCallback((offset: number) => {
     setCurrentStartDate(prev => addWeeks(prev, offset));
+  }, []);
+
+  const navigateToDate = useCallback((date: Date) => {
+    setCurrentStartDate(getMonday(date));
   }, []);
 
   const goToToday = useCallback(() => {
@@ -281,6 +286,7 @@ export function useTrainingPlan(): UseTrainingPlanReturn {
     loading,
     error,
     navigateWeeks,
+    navigateToDate,
     goToToday,
     moveWorkout,
     duplicateWorkout,
