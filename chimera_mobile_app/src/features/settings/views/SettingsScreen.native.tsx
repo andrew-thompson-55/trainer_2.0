@@ -579,14 +579,38 @@ export default function SettingsScreen() {
             <Ionicons name="time-outline" size={24} color={colors.primary} />
             <Text style={[styles.rowText, { color: colors.textPrimary }]}>Default Workout Time</Text>
           </View>
-          <TouchableOpacity
-            style={[styles.pill, { backgroundColor: colors.background, borderColor: colors.border }]}
-            onPress={() => setShowWorkoutTimePicker(true)}
-          >
-            <Text style={[styles.pillText, { color: colors.textPrimary }]}>{defaultWorkoutTime}</Text>
-          </TouchableOpacity>
+          {Platform.OS === 'web' ? (
+            <input
+              type="time"
+              value={defaultWorkoutTime}
+              onChange={(e: any) => {
+                const val = e.target.value;
+                if (val) {
+                  setDefaultWorkoutTime(val);
+                  saveSetting({ default_workout_time: val });
+                }
+              }}
+              style={{
+                backgroundColor: colors.background,
+                border: `1px solid ${colors.border}`,
+                borderRadius: 16,
+                padding: '6px 12px',
+                color: colors.textPrimary,
+                fontSize: 14,
+                fontWeight: '600',
+                cursor: 'pointer',
+              } as any}
+            />
+          ) : (
+            <TouchableOpacity
+              style={[styles.pill, { backgroundColor: colors.background, borderColor: colors.border }]}
+              onPress={() => setShowWorkoutTimePicker(true)}
+            >
+              <Text style={[styles.pillText, { color: colors.textPrimary }]}>{defaultWorkoutTime}</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        {showWorkoutTimePicker && (
+        {showWorkoutTimePicker && Platform.OS !== 'web' && (
           <DateTimePicker
             value={(() => {
               const [h, m] = defaultWorkoutTime.split(':').map(Number);

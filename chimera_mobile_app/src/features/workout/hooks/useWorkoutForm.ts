@@ -1,7 +1,7 @@
 // useWorkoutForm - Form state management for workout creation/editing
 // Extracted from components/WorkoutForm.tsx
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import type { WorkoutCreate } from '@domain/types';
 import { pkg } from '@infra/package';
@@ -58,15 +58,20 @@ export function useWorkoutForm({
   // Form state
   const [title, setTitle] = useState(initialValues?.title || '');
   const [type, setType] = useState(initialValues?.type || config.defaultActivityType);
-  const [date, setDate] = useState(() => {
-    if (initialValues?.date) return initialValues.date;
-    const now = new Date();
-    if (defaultWorkoutTime) {
+  const [date, setDate] = useState(initialValues?.date || new Date());
+
+  // Apply default workout time when it loads (async) and user hasn't manually changed the time
+  const userChangedTime = useRef(false);
+  useEffect(() => {
+    if (defaultWorkoutTime && !userChangedTime.current) {
       const [h, m] = defaultWorkoutTime.split(':').map(Number);
-      now.setHours(h, m, 0, 0);
+      setDate(prev => {
+        const updated = new Date(prev);
+        updated.setHours(h, m, 0, 0);
+        return updated;
+      });
     }
-    return now;
-  });
+  }, [defaultWorkoutTime]);
   const [duration, setDuration] = useState(initialValues?.duration || '60');
   const [description, setDescription] = useState(initialValues?.description || '');
 
@@ -121,6 +126,7 @@ export function useWorkoutForm({
   const onTimeChange = (event: any, selectedDate?: Date) => {
     setShowTimePicker(false);
     if (selectedDate) {
+      userChangedTime.current = true;
       const newDate = new Date(date);
       newDate.setHours(selectedDate.getHours(), selectedDate.getMinutes());
       setDate(newDate);

@@ -9,13 +9,13 @@ import { useWorkoutForm, ACTIVITY_TYPES } from '@features/workout';
 import type { WorkoutCreate } from '@domain/types';
 
 interface WorkoutFormProps {
-  initialValues?: {
+  initialValues?: Partial<{
     title: string;
     type: string;
     date: Date;
     duration: string;
     description: string;
-  };
+  }>;
   onSubmit: (data: WorkoutCreate) => Promise<void>;
   submitLabel: string;
   headerTitle: string;
