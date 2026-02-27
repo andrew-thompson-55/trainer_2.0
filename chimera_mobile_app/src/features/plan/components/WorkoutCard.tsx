@@ -19,11 +19,14 @@ export function WorkoutCard({ workout, onEdit, onDuplicate, onDelete }: WorkoutC
 
   const borderColor = ACTIVITY_COLORS[workout.activity_type] || ACTIVITY_COLORS.default;
   const isCompleted = workout.status === 'completed';
+  const isTentative = workout.status === 'tentative';
+  const isCancelled = workout.status === 'cancelled';
 
   const style: React.CSSProperties = {
     ...styles.card,
     borderLeftColor: borderColor,
-    opacity: isDragging ? 0.5 : isCompleted ? 0.75 : 1,
+    borderLeftStyle: isTentative ? 'dashed' : 'solid',
+    opacity: isDragging ? 0.5 : isCancelled ? 0.4 : isCompleted ? 0.75 : isTentative ? 0.7 : 1,
     transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
     cursor: isDragging ? 'grabbing' : 'grab',
   };
@@ -60,9 +63,14 @@ export function WorkoutCard({ workout, onEdit, onDuplicate, onDelete }: WorkoutC
     >
       <div style={styles.topRow}>
         <span style={styles.time}>{startTime}</span>
+        {isTentative && <span style={styles.badge}>?</span>}
+        {isCancelled && <span style={styles.cancelled}>{'\u2717'}</span>}
         {isCompleted && <span style={styles.check}>&#10003;</span>}
       </div>
-      <div style={styles.title}>{workout.title}</div>
+      <div style={{
+        ...styles.title,
+        ...(isCancelled ? { textDecoration: 'line-through' } : {}),
+      }}>{workout.title}</div>
       <div style={styles.meta}>
         {workout.activity_type}
         {duration ? ` \u00B7 ${duration}min` : ''}
@@ -96,6 +104,16 @@ const styles: Record<string, React.CSSProperties> = {
   check: {
     fontSize: 12,
     color: COLORS.green,
+    fontWeight: 700,
+  },
+  badge: {
+    fontSize: 11,
+    color: COLORS.textDim,
+    fontWeight: 700,
+  },
+  cancelled: {
+    fontSize: 12,
+    color: COLORS.textDim,
     fontWeight: 700,
   },
   title: {

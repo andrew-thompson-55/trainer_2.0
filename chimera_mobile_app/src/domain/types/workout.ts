@@ -1,7 +1,7 @@
 // Workout types - Mirror backend schemas.py
 
 export type ActivityType = 'run' | 'bike' | 'swim' | 'strength' | 'other';
-export type WorkoutStatus = 'planned' | 'completed' | 'missed';
+export type WorkoutStatus = 'planned' | 'completed' | 'missed' | 'tentative' | 'cancelled';
 
 export interface Workout {
   id: string;

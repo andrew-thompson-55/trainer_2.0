@@ -254,3 +254,12 @@ class SaveWeekTemplateRequest(BaseModel):
 class ApplyTemplateRequest(BaseModel):
     start_date: date_type
     detail_level: Literal["full", "structure"] = "full"
+
+
+# --- Plan Export Models ---
+class PlanExportResponse(BaseModel):
+    format_version: str = "1.0"
+    exported_at: str
+    distance_unit: str = "mi"
+    phases: list[dict] = []
+    workouts: list[dict] = []

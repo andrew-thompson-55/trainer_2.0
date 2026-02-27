@@ -1,9 +1,9 @@
 import logging
 from datetime import datetime, timedelta, date as date_type
-from typing import Optional
+from typing import Optional, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from dependencies import get_current_user
 from schemas import (
     PlanImportRequest,
@@ -17,47 +17,48 @@ from schemas import (
     ApplyTemplateRequest,
 )
 from db_client import supabase_admin
-from services import plan_action_service, phase_service, template_service
+from services import plan_action_service, phase_service, template_service, plan_import_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/plan", tags=["Plan"])
 
 
-# --- Legacy: Bulk Import ---
+# --- Plan Import (flexible format) ---
 
 @router.post("/import")
 async def import_plan(
-    request: PlanImportRequest,
+    raw_input: Any = Body(...),
     user_id: str = Depends(get_current_user),
 ):
-    """Bulk import planned workouts."""
-    rows = []
-    for w in request.workouts:
-        start = datetime.combine(w.date, datetime.min.time().replace(hour=8))
-        duration = timedelta(minutes=w.target_duration_minutes or 60)
-        desc_parts = []
-        if w.description:
-            desc_parts.append(w.description)
-        if w.target_notes:
-            desc_parts.append(w.target_notes)
-
-        rows.append({
-            "user_id": user_id,
-            "title": w.title,
-            "activity_type": w.activity_type,
-            "start_time": start.isoformat(),
-            "end_time": (start + duration).isoformat(),
-            "description": "\n".join(desc_parts) if desc_parts else None,
-            "status": "planned",
-        })
-
+    """
+    Flexible plan import accepting multiple shapes:
+    - Shape A: bare array of entries, e.g. [{date, title, ...}, ...]
+    - Shape B: {entries: [...], distance_unit?: str}
+    - Shape C: system format {workouts: [...], phases?: [...]}
+    """
     try:
-        resp = supabase_admin.table("planned_workouts").insert(rows).execute()
-        return {"imported": len(resp.data or []), "workouts": resp.data}
+        return await plan_import_service.import_plan(user_id, raw_input)
     except Exception as e:
         logger.error(f"Plan import failed: {e}")
         raise HTTPException(status_code=500, detail=f"Import failed: {e}")
+
+
+# --- Plan Export ---
+
+@router.get("/export")
+async def export_plan(
+    start_date: str = Query(..., description="YYYY-MM-DD"),
+    end_date: str = Query(..., description="YYYY-MM-DD"),
+    user_id: str = Depends(get_current_user),
+):
+    """Export plan as system format JSON for a date range."""
+    try:
+        sd = date_type.fromisoformat(start_date)
+        ed = date_type.fromisoformat(end_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+    return await plan_import_service.export_plan(user_id, sd, ed)
 
 
 # --- Combined Calendar Data ---

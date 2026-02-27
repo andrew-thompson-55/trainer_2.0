@@ -209,3 +209,23 @@ export async function revertAgentAction(
   if (!res.ok) throw new Error(`Failed to revert action: ${res.status}`);
   return res.json();
 }
+
+export async function importPlan(fetch: FetchFn, data: any): Promise<any> {
+  const res = await fetch('/plan/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Import failed: ${res.status}`);
+  return res.json();
+}
+
+export async function exportPlan(
+  fetch: FetchFn,
+  startDate: string,
+  endDate: string
+): Promise<any> {
+  const res = await fetch(`/plan/export?start_date=${startDate}&end_date=${endDate}`);
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+  return res.json();
+}
