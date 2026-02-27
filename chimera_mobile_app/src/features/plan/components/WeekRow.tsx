@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { format, getWeek } from 'date-fns';
+import { format, getWeek, isBefore, startOfDay } from 'date-fns';
 import { COLORS, FONT, SPACING, RADIUS } from '@features/web-dashboard/styles';
 import { DayCell } from './DayCell';
 import type { WeekData } from '../hooks/useTrainingPlan';
@@ -7,7 +7,10 @@ import type { Workout } from '@domain/types';
 
 interface WeekRowProps {
   week: WeekData;
-  onEditWorkout: (workout: Workout) => void;
+  weekStartDay: 0 | 1;
+  dayNames: string[];
+  isCurrentWeek?: boolean;
+  onEditWorkout: (workout: Workout, anchorRect: DOMRect) => void;
   onDuplicateWorkout: (workout: Workout) => void;
   onDeleteWorkout: (workout: Workout) => void;
   onAddWorkout: (date: string) => void;
@@ -18,6 +21,9 @@ interface WeekRowProps {
 
 export function WeekRow({
   week,
+  weekStartDay,
+  dayNames,
+  isCurrentWeek,
   onEditWorkout,
   onDuplicateWorkout,
   onDeleteWorkout,
@@ -26,8 +32,10 @@ export function WeekRow({
   onClearWeek,
   onSaveTemplate,
 }: WeekRowProps) {
-  const weekNum = getWeek(week.weekStart, { weekStartsOn: 1 });
+  const weekNum = getWeek(week.weekStart, { weekStartsOn: weekStartDay });
   const workoutCount = week.days.reduce((sum, d) => sum + d.workouts.length, 0);
+  const today = startOfDay(new Date());
+  const isPastWeek = isBefore(week.days[6].date, today);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -40,11 +48,15 @@ export function WeekRow({
   }, [weekNum, workoutCount, week.weekKey, onDuplicateWeek, onClearWeek, onSaveTemplate]);
 
   return (
-    <div style={styles.row}>
+    <div style={{
+      ...styles.row,
+      ...(isCurrentWeek ? styles.currentWeekRow : {}),
+    }}>
       <div style={styles.label} onContextMenu={handleContextMenu}>
         <span style={styles.weekNum}>WK {weekNum}</span>
         <span style={styles.weekDate}>{format(week.weekStart, 'MMM d')}</span>
         <span style={styles.count}>{workoutCount}</span>
+        {isCurrentWeek && <span style={styles.thisWeek}>THIS WEEK</span>}
       </div>
       <div style={styles.days}>
         {week.days.map((day, i) => (
@@ -52,10 +64,12 @@ export function WeekRow({
             key={day.dateKey}
             day={day}
             dayIndex={i}
+            dayNames={dayNames}
             onEditWorkout={onEditWorkout}
             onDuplicateWorkout={onDuplicateWorkout}
             onDeleteWorkout={onDeleteWorkout}
             onAddWorkout={onAddWorkout}
+            isPast={isPastWeek}
           />
         ))}
       </div>
@@ -68,6 +82,10 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: SPACING.sm,
     marginBottom: SPACING.sm,
+  },
+  currentWeekRow: {
+    borderLeft: '3px solid #3b82f6',
+    paddingLeft: SPACING.xs,
   },
   label: {
     width: 64,
@@ -99,6 +117,14 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 8,
     padding: '1px 6px',
     marginTop: 2,
+  },
+  thisWeek: {
+    fontSize: 8,
+    fontWeight: 700,
+    color: COLORS.accent,
+    fontFamily: FONT.mono,
+    letterSpacing: '0.5px',
+    marginTop: 4,
   },
   days: {
     flex: 1,

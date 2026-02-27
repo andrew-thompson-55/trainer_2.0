@@ -1,8 +1,8 @@
 // useTrainingPlan - Web-specific hook for the unified training plan page
-// Uses GET /v1/plan/calendar as single data source with optimistic updates
+// Supports configurable week start day and infinite scroll loading
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { format, startOfWeek, addWeeks, addDays, parseISO } from 'date-fns';
+import { format, startOfWeek, addWeeks, addDays, parseISO, isSameWeek } from 'date-fns';
 import { authFetch } from '@infra/fetch/auth-fetch';
 import * as planApi from '@domain/api/plan';
 import type { Workout } from '@domain/types';
@@ -12,6 +12,7 @@ export interface WeekData {
   weekStart: Date;
   weekKey: string; // YYYY-MM-DD
   days: DayData[];
+  isCurrentWeek: boolean;
 }
 
 export interface DayData {
@@ -21,17 +22,25 @@ export interface DayData {
   isToday: boolean;
 }
 
+interface UseTrainingPlanOptions {
+  weekStartDay?: 0 | 1; // 0 = Sunday, 1 = Monday (default)
+}
+
 interface UseTrainingPlanReturn {
   weeks: WeekData[];
   phases: TrainingPhase[];
   templates: PlanTemplate[];
   agentActions: AgentAction[];
-  currentStartDate: Date;
   loading: boolean;
+  loadingMore: boolean;
   error: string | null;
-  navigateWeeks: (offset: number) => void;
-  navigateToDate: (date: Date) => void;
+  weekStartDay: 0 | 1;
+  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
+  currentWeekRef: React.RefObject<HTMLDivElement | null>;
+  topSentinelRef: React.RefObject<HTMLDivElement | null>;
+  bottomSentinelRef: React.RefObject<HTMLDivElement | null>;
   goToToday: () => void;
+  jumpToDate: (date: Date) => void;
   moveWorkout: (workoutId: string, newDate: string) => Promise<void>;
   duplicateWorkout: (workoutId: string, targetDate: string) => Promise<void>;
   deleteWorkout: (workoutId: string) => Promise<void>;
@@ -47,17 +56,19 @@ interface UseTrainingPlanReturn {
   refreshData: () => Promise<void>;
   refreshTemplates: () => Promise<void>;
   refreshAgentActions: () => Promise<void>;
+  updateWorkout: (workoutId: string, data: Partial<Workout>) => Promise<void>;
 }
 
-function getMonday(date: Date): Date {
-  return startOfWeek(date, { weekStartsOn: 1 });
+function getWeekStart(date: Date, weekStartsOn: 0 | 1): Date {
+  return startOfWeek(date, { weekStartsOn });
 }
 
 function buildWeeks(
   startDate: Date,
   numWeeks: number,
   workouts: Workout[],
-  today: string
+  today: string,
+  weekStartsOn: 0 | 1
 ): WeekData[] {
   const workoutsByDate = new Map<string, Workout[]>();
   for (const w of workouts) {
@@ -67,6 +78,7 @@ function buildWeeks(
     workoutsByDate.get(dateKey)!.push(w);
   }
 
+  const todayDate = new Date();
   const weeks: WeekData[] = [];
   for (let wi = 0; wi < numWeeks; wi++) {
     const weekStart = addWeeks(startDate, wi);
@@ -85,39 +97,91 @@ function buildWeeks(
       weekStart,
       weekKey: format(weekStart, 'yyyy-MM-dd'),
       days,
+      isCurrentWeek: isSameWeek(weekStart, todayDate, { weekStartsOn }),
     });
   }
   return weeks;
 }
 
-const NUM_WEEKS = 5;
+const INITIAL_WEEKS = 12;
+const LOAD_MORE_WEEKS = 8;
+const MAX_PAST_WEEKS = 52;
 
-export function useTrainingPlan(): UseTrainingPlanReturn {
+export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPlanReturn {
+  const weekStartDay = options?.weekStartDay ?? 1;
   const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const [currentStartDate, setCurrentStartDate] = useState(() => getMonday(new Date()));
+
+  // Track the absolute start date of our loaded range
+  const [rangeStart, setRangeStart] = useState(() => getWeekStart(new Date(), weekStartDay));
+  const [totalWeeks, setTotalWeeks] = useState(INITIAL_WEEKS);
   const [rawWorkouts, setRawWorkouts] = useState<Workout[]>([]);
   const [phases, setPhases] = useState<TrainingPhase[]>([]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
   const [agentActions, setAgentActions] = useState<AgentAction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fetchRef = useRef(0);
+  const loadingMoreRef = useRef(false);
+  const pastWeeksLoaded = useRef(0);
 
-  const fetchCalendarData = useCallback(async (start: Date) => {
-    const id = ++fetchRef.current;
-    setLoading(true);
-    setError(null);
+  // Refs for scroll and sentinels
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const currentWeekRef = useRef<HTMLDivElement>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
+  const bottomSentinelRef = useRef<HTMLDivElement>(null);
+
+  // Cache of fetched date ranges to avoid re-fetching
+  const fetchedRangesRef = useRef<Set<string>>(new Set());
+
+  const fetchCalendarRange = useCallback(async (start: Date, weeks: number, merge = false) => {
+    const startStr = format(start, 'yyyy-MM-dd');
+    const rangeKey = `${startStr}:${weeks}`;
+
+    // Skip if already fetched this exact range
+    if (merge && fetchedRangesRef.current.has(rangeKey)) return;
+
+    const id = merge ? fetchRef.current : ++fetchRef.current;
+    if (!merge) {
+      setLoading(true);
+      setError(null);
+      fetchedRangesRef.current.clear();
+    } else {
+      setLoadingMore(true);
+    }
+
     try {
-      const startStr = format(start, 'yyyy-MM-dd');
-      const data = await planApi.getCalendarData(authFetch, startStr, NUM_WEEKS);
-      if (id !== fetchRef.current) return; // stale
-      setRawWorkouts(data.workouts || []);
-      setPhases(data.phases || []);
+      const data = await planApi.getCalendarData(authFetch, startStr, weeks);
+      if (!merge && id !== fetchRef.current) return; // stale
+
+      fetchedRangesRef.current.add(rangeKey);
+
+      if (merge) {
+        setRawWorkouts(prev => {
+          const existingIds = new Set(prev.map(w => w.id));
+          const newWorkouts = (data.workouts || []).filter((w: Workout) => !existingIds.has(w.id));
+          return [...prev, ...newWorkouts];
+        });
+        // Merge phases
+        setPhases(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newPhases = (data.phases || []).filter((p: TrainingPhase) => !existingIds.has(p.id));
+          return [...prev, ...newPhases];
+        });
+      } else {
+        setRawWorkouts(data.workouts || []);
+        setPhases(data.phases || []);
+      }
     } catch (e: any) {
-      if (id !== fetchRef.current) return;
-      setError(e.message || 'Failed to load calendar');
+      if (!merge && id !== fetchRef.current) return;
+      if (!merge) setError(e.message || 'Failed to load calendar');
     } finally {
-      if (id === fetchRef.current) setLoading(false);
+      if (merge) {
+        setLoadingMore(false);
+        loadingMoreRef.current = false;
+      } else {
+        if (id === fetchRef.current) setLoading(false);
+      }
     }
   }, []);
 
@@ -141,34 +205,86 @@ export function useTrainingPlan(): UseTrainingPlanReturn {
 
   // Initial load
   useEffect(() => {
-    fetchCalendarData(currentStartDate);
+    fetchedRangesRef.current.clear();
+    pastWeeksLoaded.current = 0;
+    fetchCalendarRange(rangeStart, totalWeeks);
     refreshTemplates();
     refreshAgentActions();
-  }, [currentStartDate, fetchCalendarData, refreshTemplates, refreshAgentActions]);
+  }, [rangeStart, totalWeeks, fetchCalendarRange, refreshTemplates, refreshAgentActions]);
+
+  // Infinite scroll: observe sentinels
+  useEffect(() => {
+    const topEl = topSentinelRef.current;
+    const bottomEl = bottomSentinelRef.current;
+    if (!topEl || !bottomEl) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting || loadingMoreRef.current) continue;
+
+        if (entry.target === bottomEl) {
+          // Load more future weeks
+          loadingMoreRef.current = true;
+          const newEnd = addWeeks(rangeStart, totalWeeks);
+          setTotalWeeks(prev => prev + LOAD_MORE_WEEKS);
+          fetchCalendarRange(newEnd, LOAD_MORE_WEEKS, true);
+        } else if (entry.target === topEl && pastWeeksLoaded.current < MAX_PAST_WEEKS) {
+          // Prepend past weeks
+          loadingMoreRef.current = true;
+          const scrollContainer = scrollContainerRef.current;
+          const prevHeight = scrollContainer?.scrollHeight || 0;
+
+          const newStart = addWeeks(rangeStart, -LOAD_MORE_WEEKS);
+          pastWeeksLoaded.current += LOAD_MORE_WEEKS;
+          setRangeStart(newStart);
+          setTotalWeeks(prev => prev + LOAD_MORE_WEEKS);
+          fetchCalendarRange(newStart, LOAD_MORE_WEEKS, true).then(() => {
+            // Restore scroll position after prepend
+            requestAnimationFrame(() => {
+              if (scrollContainer) {
+                const newHeight = scrollContainer.scrollHeight;
+                scrollContainer.scrollTop += (newHeight - prevHeight);
+              }
+            });
+          });
+        }
+      }
+    }, {
+      root: scrollContainerRef.current,
+      rootMargin: '200px',
+      threshold: 0,
+    });
+
+    observer.observe(topEl);
+    observer.observe(bottomEl);
+    return () => observer.disconnect();
+  }, [rangeStart, totalWeeks, fetchCalendarRange]);
 
   const refreshData = useCallback(async () => {
-    await fetchCalendarData(currentStartDate);
-  }, [currentStartDate, fetchCalendarData]);
-
-  const navigateWeeks = useCallback((offset: number) => {
-    setCurrentStartDate(prev => addWeeks(prev, offset));
-  }, []);
-
-  const navigateToDate = useCallback((date: Date) => {
-    setCurrentStartDate(getMonday(date));
-  }, []);
+    fetchedRangesRef.current.clear();
+    await fetchCalendarRange(rangeStart, totalWeeks);
+  }, [rangeStart, totalWeeks, fetchCalendarRange]);
 
   const goToToday = useCallback(() => {
-    setCurrentStartDate(getMonday(new Date()));
+    requestAnimationFrame(() => {
+      currentWeekRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   }, []);
 
+  const jumpToDate = useCallback((date: Date) => {
+    const newStart = addWeeks(getWeekStart(date, weekStartDay), -4); // center the target
+    fetchedRangesRef.current.clear();
+    pastWeeksLoaded.current = 0;
+    setRangeStart(newStart);
+    setTotalWeeks(INITIAL_WEEKS);
+  }, [weekStartDay]);
+
   // Build weeks from raw data
-  const weeks = buildWeeks(currentStartDate, NUM_WEEKS, rawWorkouts, todayStr);
+  const weeks = buildWeeks(rangeStart, totalWeeks, rawWorkouts, todayStr, weekStartDay);
 
   // --- Mutation helpers (optimistic + background sync) ---
 
   const moveWorkout = useCallback(async (workoutId: string, newDate: string) => {
-    // Optimistic: move in local state
     setRawWorkouts(prev => prev.map(w => {
       if (w.id !== workoutId) return w;
       const oldStart = parseISO(w.start_time);
@@ -183,18 +299,14 @@ export function useTrainingPlan(): UseTrainingPlanReturn {
       await planApi.moveWorkout(authFetch, workoutId, newDate);
       await refreshData();
     } catch (e: any) {
-      await refreshData(); // rollback via refetch
+      await refreshData();
       throw e;
     }
   }, [refreshData]);
 
   const duplicateWorkout = useCallback(async (workoutId: string, targetDate: string) => {
-    try {
-      await planApi.duplicateWorkout(authFetch, workoutId, targetDate);
-      await refreshData();
-    } catch (e: any) {
-      throw e;
-    }
+    await planApi.duplicateWorkout(authFetch, workoutId, targetDate);
+    await refreshData();
   }, [refreshData]);
 
   const deleteWorkout = useCallback(async (workoutId: string) => {
@@ -208,46 +320,50 @@ export function useTrainingPlan(): UseTrainingPlanReturn {
     }
   }, [refreshData]);
 
-  const moveWeek = useCallback(async (sourceStart: string, targetStart: string) => {
+  const updateWorkout = useCallback(async (workoutId: string, data: Partial<Workout>) => {
+    // Optimistic update
+    setRawWorkouts(prev => prev.map(w => w.id === workoutId ? { ...w, ...data } : w));
     try {
-      await planApi.moveWeek(authFetch, sourceStart, targetStart);
+      // Use the move endpoint if date changed, otherwise use a general update
+      if (data.start_time) {
+        const newDate = format(parseISO(data.start_time), 'yyyy-MM-dd');
+        await planApi.moveWorkout(authFetch, workoutId, newDate);
+      }
       await refreshData();
-    } catch (e: any) { throw e; }
+    } catch (e: any) {
+      await refreshData();
+      throw e;
+    }
+  }, [refreshData]);
+
+  const moveWeek = useCallback(async (sourceStart: string, targetStart: string) => {
+    await planApi.moveWeek(authFetch, sourceStart, targetStart);
+    await refreshData();
   }, [refreshData]);
 
   const duplicateWeek = useCallback(async (sourceStart: string, targetStart: string) => {
-    try {
-      await planApi.duplicateWeek(authFetch, sourceStart, targetStart);
-      await refreshData();
-    } catch (e: any) { throw e; }
+    await planApi.duplicateWeek(authFetch, sourceStart, targetStart);
+    await refreshData();
   }, [refreshData]);
 
   const clearWeek = useCallback(async (weekStart: string) => {
-    try {
-      await planApi.clearWeek(authFetch, weekStart);
-      await refreshData();
-    } catch (e: any) { throw e; }
+    await planApi.clearWeek(authFetch, weekStart);
+    await refreshData();
   }, [refreshData]);
 
   const saveWeekAsTemplate = useCallback(async (weekStart: string, title: string) => {
-    try {
-      await planApi.saveWeekAsTemplate(authFetch, weekStart, title);
-      await refreshTemplates();
-    } catch (e: any) { throw e; }
+    await planApi.saveWeekAsTemplate(authFetch, weekStart, title);
+    await refreshTemplates();
   }, [refreshTemplates]);
 
   const createPhase = useCallback(async (data: Partial<TrainingPhase>) => {
-    try {
-      await planApi.createPhase(authFetch, data);
-      await refreshData();
-    } catch (e: any) { throw e; }
+    await planApi.createPhase(authFetch, data);
+    await refreshData();
   }, [refreshData]);
 
   const updatePhase = useCallback(async (phaseId: string, data: Partial<TrainingPhase>) => {
-    try {
-      await planApi.updatePhase(authFetch, phaseId, data);
-      await refreshData();
-    } catch (e: any) { throw e; }
+    await planApi.updatePhase(authFetch, phaseId, data);
+    await refreshData();
   }, [refreshData]);
 
   const deletePhase = useCallback(async (phaseId: string) => {
@@ -264,17 +380,13 @@ export function useTrainingPlan(): UseTrainingPlanReturn {
   const applyTemplate = useCallback(async (
     templateId: string, startDate: string, detailLevel: 'full' | 'structure'
   ) => {
-    try {
-      await planApi.applyTemplate(authFetch, templateId, startDate, detailLevel);
-      await refreshData();
-    } catch (e: any) { throw e; }
+    await planApi.applyTemplate(authFetch, templateId, startDate, detailLevel);
+    await refreshData();
   }, [refreshData]);
 
   const revertAgentAction = useCallback(async (actionId: string) => {
-    try {
-      await planApi.revertAgentAction(authFetch, actionId);
-      await Promise.all([refreshData(), refreshAgentActions()]);
-    } catch (e: any) { throw e; }
+    await planApi.revertAgentAction(authFetch, actionId);
+    await Promise.all([refreshData(), refreshAgentActions()]);
   }, [refreshData, refreshAgentActions]);
 
   return {
@@ -282,15 +394,20 @@ export function useTrainingPlan(): UseTrainingPlanReturn {
     phases,
     templates,
     agentActions,
-    currentStartDate,
     loading,
+    loadingMore,
     error,
-    navigateWeeks,
-    navigateToDate,
+    weekStartDay,
+    scrollContainerRef,
+    currentWeekRef,
+    topSentinelRef,
+    bottomSentinelRef,
     goToToday,
+    jumpToDate,
     moveWorkout,
     duplicateWorkout,
     deleteWorkout,
+    updateWorkout,
     moveWeek,
     duplicateWeek,
     clearWeek,

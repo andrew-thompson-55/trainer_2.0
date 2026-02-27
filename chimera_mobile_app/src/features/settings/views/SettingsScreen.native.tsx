@@ -49,6 +49,7 @@ export default function SettingsScreen() {
   // Local state mirrors for quick UI
   const [weightUnit, setWeightUnitState] = useState<WeightUnit>('kg');
   const [distanceUnit, setDistanceUnitState] = useState<DistanceUnit>('mi');
+  const [weekStartDay, setWeekStartDayState] = useState<'monday' | 'sunday'>('monday');
   const [morningReminder, setMorningReminder] = useState(false);
   const [morningReminderTime, setMorningReminderTime] = useState('08:00');
   const [workoutReminder, setWorkoutReminder] = useState(false);
@@ -109,6 +110,7 @@ export default function SettingsScreen() {
       setWeightUnitState(s.weight_unit);
       AsyncStorage.setItem(STORAGE_KEYS.WEIGHT_UNIT, s.weight_unit);
       setDistanceUnitState(s.distance_unit ?? 'mi');
+      setWeekStartDayState(s.week_start_day ?? 'monday');
       setMorningReminder(s.morning_checkin_reminder ?? false);
       setMorningReminderTime(s.morning_checkin_reminder_time ?? '08:00');
       setWorkoutReminder(s.workout_update_reminder ?? false);
@@ -173,6 +175,11 @@ export default function SettingsScreen() {
   const handleSetDistanceUnit = async (unit: DistanceUnit) => {
     setDistanceUnitState(unit);
     saveSetting({ distance_unit: unit });
+  };
+
+  const handleSetWeekStartDay = async (day: 'monday' | 'sunday') => {
+    setWeekStartDayState(day);
+    saveSetting({ week_start_day: day });
   };
 
   const handleToggleNotification = async (
@@ -521,6 +528,31 @@ export default function SettingsScreen() {
                 onPress={() => handleSetDistanceUnit(unit)}
               >
                 <Text style={[styles.pillText, { color: colors.textPrimary }, distanceUnit === unit && styles.pillTextActive]}>{unit}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={{ height: 12 }} />
+        <View style={[styles.row, { backgroundColor: colors.card }]}>
+          <View style={styles.rowLeft}>
+            <Ionicons name="calendar-outline" size={24} color={colors.primary} />
+            <Text style={[styles.rowText, { color: colors.textPrimary }]}>Week Starts On</Text>
+          </View>
+          <View style={styles.pillContainer}>
+            {(['monday', 'sunday'] as const).map(day => (
+              <TouchableOpacity
+                key={day}
+                style={[
+                  styles.pill,
+                  { backgroundColor: colors.background, borderColor: colors.border },
+                  weekStartDay === day && { backgroundColor: colors.primary, borderColor: colors.primary },
+                ]}
+                onPress={() => handleSetWeekStartDay(day)}
+              >
+                <Text style={[styles.pillText, { color: colors.textPrimary }, weekStartDay === day && styles.pillTextActive]}>
+                  {day === 'monday' ? 'Mon' : 'Sun'}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>

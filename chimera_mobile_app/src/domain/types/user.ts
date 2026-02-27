@@ -54,4 +54,7 @@ export interface UserSettings {
 
   // Activity filtering
   tracked_activity_types?: string[];
+
+  // Calendar preferences
+  week_start_day?: 'monday' | 'sunday';
 }

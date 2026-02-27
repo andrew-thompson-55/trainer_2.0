@@ -2,13 +2,14 @@
 // Drag-drop calendar grid with phases, templates, and agent action logging
 // Uses HTML/React DOM for best dnd-kit compatibility (Principle 5)
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { format, addWeeks, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import {
   DndContext,
   DragEndEvent,
   DragStartEvent,
+  DragOverlay,
   PointerSensor,
   useSensor,
   useSensors,
@@ -16,21 +17,38 @@ import {
 import { COLORS, FONT, SPACING } from '@features/web-dashboard/styles';
 import { useTrainingPlan } from '../hooks/useTrainingPlan';
 import { PlanHeader } from '../components/PlanHeader';
-import { PhaseBarArea } from '../components/PhaseBar';
+import { PhaseColumn } from '../components/PhaseColumn';
 import { WeekRow } from '../components/WeekRow';
+import { WorkoutCard } from '../components/WorkoutCard';
+import { WorkoutEditPopover } from '../components/WorkoutEditPopover';
 import { TrashZone } from '../components/TrashZone';
 import { SidePanel } from '../components/SidePanel';
 import { TemplateDialog } from '../components/TemplateDialog';
 import { ImportModal } from '../components/ImportModal';
 import { authFetch } from '@infra/fetch/auth-fetch';
+import * as userApi from '@domain/api/user';
 import type { Workout } from '@domain/types';
 import type { TrainingPhase } from '@domain/types/plan';
 
+const DAY_NAMES_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_NAMES_SUN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 export default function PlanScreen() {
   const router = useRouter();
-  const plan = useTrainingPlan();
+
+  // Load user's week start day setting
+  const [weekStartDay, setWeekStartDay] = useState<0 | 1>(1);
+  useEffect(() => {
+    userApi.getUserSettings(authFetch).then(s => {
+      setWeekStartDay(s.week_start_day === 'sunday' ? 0 : 1);
+    }).catch(() => {});
+  }, []);
+
+  const plan = useTrainingPlan({ weekStartDay });
+  const dayNames = weekStartDay === 0 ? DAY_NAMES_SUN : DAY_NAMES_MON;
 
   const [isDragging, setIsDragging] = useState(false);
+  const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
   const [sidePanelMode, setSidePanelMode] = useState<'templates' | 'agent-log' | null>(null);
   const [templateDialog, setTemplateDialog] = useState<{
     templateId: string;
@@ -39,6 +57,10 @@ export default function PlanScreen() {
   } | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [editingWorkout, setEditingWorkout] = useState<{
+    workout: Workout;
+    anchorRect: DOMRect;
+  } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -51,12 +73,15 @@ export default function PlanScreen() {
   }, []);
 
   // --- Drag handlers ---
-  const handleDragStart = useCallback((_event: DragStartEvent) => {
+  const handleDragStart = useCallback((event: DragStartEvent) => {
     setIsDragging(true);
+    const workout = event.active.data.current?.workout as Workout | undefined;
+    setActiveWorkout(workout || null);
   }, []);
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setIsDragging(false);
+    setActiveWorkout(null);
     const { active, over } = event;
     if (!over || !active.data.current) return;
 
@@ -101,10 +126,20 @@ export default function PlanScreen() {
     }
   }, [plan, showToast]);
 
-  // --- Workout context actions ---
-  const handleEditWorkout = useCallback((workout: Workout) => {
-    router.push({ pathname: '/edit_workout', params: { id: workout.id } });
-  }, [router]);
+  // --- Workout actions ---
+  const handleEditWorkout = useCallback((workout: Workout, anchorRect: DOMRect) => {
+    setEditingWorkout({ workout, anchorRect });
+  }, []);
+
+  const handleSaveWorkout = useCallback(async (workoutId: string, updates: Partial<Workout>) => {
+    try {
+      await plan.updateWorkout(workoutId, updates);
+      showToast('Workout updated');
+    } catch {
+      showToast('Failed to update workout');
+      throw new Error('Failed to update');
+    }
+  }, [plan, showToast]);
 
   const handleDuplicateWorkout = useCallback(async (workout: Workout) => {
     const targetDate = window.prompt('Duplicate to which date? (YYYY-MM-DD)');
@@ -117,7 +152,16 @@ export default function PlanScreen() {
     }
   }, [plan, showToast]);
 
-  const handleDeleteWorkout = useCallback(async (workout: Workout) => {
+  const handleDeleteWorkout = useCallback(async (workoutId: string) => {
+    try {
+      await plan.deleteWorkout(workoutId);
+      showToast('Workout deleted');
+    } catch {
+      showToast('Failed to delete');
+    }
+  }, [plan, showToast]);
+
+  const handleDeleteWorkoutCard = useCallback(async (workout: Workout) => {
     try {
       await plan.deleteWorkout(workout.id);
       showToast(`Deleted "${workout.title}"`);
@@ -132,7 +176,7 @@ export default function PlanScreen() {
 
   // --- Week actions ---
   const handleDuplicateWeek = useCallback(async (weekStart: string) => {
-    const target = window.prompt('Duplicate to which week start? (YYYY-MM-DD, Monday)');
+    const target = window.prompt('Duplicate to which week start? (YYYY-MM-DD)');
     if (!target) return;
     try {
       await plan.duplicateWeek(weekStart, target);
@@ -214,8 +258,8 @@ export default function PlanScreen() {
     if (!window.confirm('Delete this template?')) return;
     try {
       const { deleteTemplate } = await import('@domain/api/plan');
-      const { authFetch } = await import('@infra/fetch/auth-fetch');
-      await deleteTemplate(authFetch, templateId);
+      const { authFetch: af } = await import('@infra/fetch/auth-fetch');
+      await deleteTemplate(af, templateId);
       await plan.refreshTemplates();
       showToast('Template deleted');
     } catch {
@@ -227,7 +271,7 @@ export default function PlanScreen() {
   const handleImportSuccess = useCallback(async (firstDate: string | null) => {
     await plan.refreshData();
     if (firstDate) {
-      plan.navigateToDate(parseISO(firstDate));
+      plan.jumpToDate(parseISO(firstDate));
     }
     showToast('Plan imported successfully');
   }, [plan, showToast]);
@@ -241,58 +285,97 @@ export default function PlanScreen() {
     setSidePanelMode(prev => prev === 'agent-log' ? null : 'agent-log');
   }, []);
 
-  // Phase bar area sizing
-  const totalDays = plan.weeks.length * 7;
+  // Estimated week row height for phase column positioning
+  const WEEK_ROW_HEIGHT = 148; // approximate; matches CSS min-height + gap
 
   return (
     <div style={styles.container}>
       <PlanHeader
-        currentStartDate={plan.currentStartDate}
-        onNavigateWeeks={plan.navigateWeeks}
         onGoToToday={plan.goToToday}
+        onJumpToDate={plan.jumpToDate}
         onAddWorkout={() => router.push('/add_workout')}
         onImport={() => setShowImportModal(true)}
         showTemplates={sidePanelMode === 'templates'}
         onToggleTemplates={toggleTemplates}
         showAgentLog={sidePanelMode === 'agent-log'}
         onToggleAgentLog={toggleAgentLog}
+        loadingMore={plan.loadingMore}
       />
 
       <div style={styles.body}>
-        <div style={styles.main}>
-          {/* Phase bars */}
-          <PhaseBarArea
-            phases={plan.phases}
-            viewStartDate={plan.currentStartDate}
-            totalDays={totalDays}
-            onEditPhase={handleEditPhase}
-            onDeletePhase={handleDeletePhase}
-          />
+        <div
+          ref={plan.scrollContainerRef}
+          style={styles.main}
+        >
+          {/* Top sentinel for infinite scroll */}
+          <div ref={plan.topSentinelRef} style={{ height: 1 }} />
 
-          {/* Calendar grid */}
+          {/* Calendar grid with phase column */}
           <DndContext
             sensors={sensors}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div style={styles.grid}>
-              {plan.weeks.map(week => (
-                <WeekRow
-                  key={week.weekKey}
-                  week={week}
-                  onEditWorkout={handleEditWorkout}
-                  onDuplicateWorkout={handleDuplicateWorkout}
-                  onDeleteWorkout={handleDeleteWorkout}
-                  onAddWorkout={handleAddWorkout}
-                  onDuplicateWeek={handleDuplicateWeek}
-                  onClearWeek={handleClearWeek}
-                  onSaveTemplate={handleSaveTemplate}
-                />
-              ))}
+            <div style={styles.gridWrapper}>
+              {/* Phase column */}
+              <PhaseColumn
+                phases={plan.phases}
+                weeks={plan.weeks}
+                weekRowHeight={WEEK_ROW_HEIGHT}
+                weekStartDay={weekStartDay}
+                onEditPhase={handleEditPhase}
+                onDeletePhase={handleDeletePhase}
+              />
+
+              {/* Week rows */}
+              <div style={styles.grid}>
+                {plan.weeks.map(week => (
+                  <div
+                    key={week.weekKey}
+                    ref={week.isCurrentWeek ? plan.currentWeekRef : undefined}
+                  >
+                    <WeekRow
+                      week={week}
+                      weekStartDay={weekStartDay}
+                      dayNames={dayNames}
+                      isCurrentWeek={week.isCurrentWeek}
+                      onEditWorkout={handleEditWorkout}
+                      onDuplicateWorkout={handleDuplicateWorkout}
+                      onDeleteWorkout={handleDeleteWorkoutCard}
+                      onAddWorkout={handleAddWorkout}
+                      onDuplicateWeek={handleDuplicateWeek}
+                      onClearWeek={handleClearWeek}
+                      onSaveTemplate={handleSaveTemplate}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
+
+            {/* Drag overlay - floats above everything */}
+            <DragOverlay
+              zIndex={9999}
+              dropAnimation={{
+                duration: 200,
+                easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+              }}
+            >
+              {activeWorkout ? (
+                <WorkoutCard
+                  workout={activeWorkout}
+                  isOverlay
+                  onEdit={() => {}}
+                  onDuplicate={() => {}}
+                  onDelete={() => {}}
+                />
+              ) : null}
+            </DragOverlay>
 
             <TrashZone active={isDragging} />
           </DndContext>
+
+          {/* Bottom sentinel for infinite scroll */}
+          <div ref={plan.bottomSentinelRef} style={{ height: 1 }} />
 
           {/* Loading / Error */}
           {plan.loading && (
@@ -341,6 +424,17 @@ export default function PlanScreen() {
         />
       )}
 
+      {/* Workout edit popover */}
+      {editingWorkout && (
+        <WorkoutEditPopover
+          workout={editingWorkout.workout}
+          anchorRect={editingWorkout.anchorRect}
+          onSave={handleSaveWorkout}
+          onDelete={handleDeleteWorkout}
+          onClose={() => setEditingWorkout(null)}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
         <div style={styles.toast}>{toast}</div>
@@ -369,7 +463,12 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'auto',
     padding: SPACING.md,
   },
+  gridWrapper: {
+    display: 'flex',
+    gap: 0,
+  },
   grid: {
+    flex: 1,
     display: 'flex',
     flexDirection: 'column',
   },

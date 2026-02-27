@@ -1,41 +1,56 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { COLORS, FONT, SPACING, RADIUS } from '@features/web-dashboard/styles';
 
 interface PlanHeaderProps {
-  currentStartDate: Date;
-  onNavigateWeeks: (offset: number) => void;
   onGoToToday: () => void;
+  onJumpToDate: (date: Date) => void;
   onAddWorkout: () => void;
   onImport: () => void;
   showTemplates: boolean;
   onToggleTemplates: () => void;
   showAgentLog: boolean;
   onToggleAgentLog: () => void;
+  loadingMore?: boolean;
 }
 
 export function PlanHeader({
-  currentStartDate,
-  onNavigateWeeks,
   onGoToToday,
+  onJumpToDate,
   onAddWorkout,
   onImport,
   showTemplates,
   onToggleTemplates,
   showAgentLog,
   onToggleAgentLog,
+  loadingMore,
 }: PlanHeaderProps) {
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val) {
+      onJumpToDate(new Date(val + 'T00:00:00'));
+    }
+  }, [onJumpToDate]);
+
   return (
     <div style={styles.header}>
       <div style={styles.left}>
         <h1 style={styles.title}>Training Plan</h1>
         <div style={styles.nav}>
-          <button style={styles.navBtn} onClick={() => onNavigateWeeks(-5)}>&#9664;</button>
-          <span style={styles.dateRange}>
-            {format(currentStartDate, 'MMM d, yyyy')}
-          </span>
-          <button style={styles.navBtn} onClick={() => onNavigateWeeks(5)}>&#9654;</button>
           <button style={styles.todayBtn} onClick={onGoToToday}>Today</button>
+          <div style={styles.datePickerWrap}>
+            <label style={styles.jumpLabel}>Jump to:</label>
+            <input
+              ref={dateInputRef}
+              type="date"
+              style={styles.dateInput}
+              onChange={handleDateChange}
+              defaultValue={format(new Date(), 'yyyy-MM-dd')}
+            />
+          </div>
+          {loadingMore && <span style={styles.loadingIndicator}>Loading...</span>}
         </div>
       </div>
       <div style={styles.right}>
@@ -92,33 +107,43 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: SPACING.sm,
   },
-  navBtn: {
+  todayBtn: {
     background: 'none',
+    border: `1px solid ${COLORS.accent}`,
+    borderRadius: RADIUS.sm,
+    color: COLORS.accent,
+    padding: '6px 14px',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 600,
+    fontFamily: FONT.mono,
+  },
+  datePickerWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+  jumpLabel: {
+    fontSize: 12,
+    color: COLORS.textDim,
+    fontFamily: FONT.mono,
+  },
+  dateInput: {
+    backgroundColor: COLORS.bg,
     border: `1px solid ${COLORS.border}`,
     borderRadius: RADIUS.sm,
     color: COLORS.text,
-    padding: '4px 10px',
-    cursor: 'pointer',
-    fontSize: 14,
-    fontFamily: FONT.mono,
-  },
-  dateRange: {
-    color: COLORS.textMuted,
-    fontSize: 14,
-    fontFamily: FONT.mono,
-    minWidth: 130,
-    textAlign: 'center' as const,
-  },
-  todayBtn: {
-    background: 'none',
-    border: `1px solid ${COLORS.border}`,
-    borderRadius: RADIUS.sm,
-    color: COLORS.accent,
-    padding: '4px 12px',
-    cursor: 'pointer',
+    padding: '4px 8px',
     fontSize: 13,
     fontFamily: FONT.mono,
-    marginLeft: SPACING.xs,
+    cursor: 'pointer',
+    colorScheme: 'dark',
+  },
+  loadingIndicator: {
+    fontSize: 11,
+    color: COLORS.textDim,
+    fontFamily: FONT.mono,
+    marginLeft: 8,
   },
   right: {
     display: 'flex',

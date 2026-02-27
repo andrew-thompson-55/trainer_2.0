@@ -6,24 +6,26 @@ import { WorkoutCard } from './WorkoutCard';
 import type { DayData } from '../hooks/useTrainingPlan';
 import type { Workout } from '@domain/types';
 
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
 interface DayCellProps {
   day: DayData;
   dayIndex: number;
-  onEditWorkout: (workout: Workout) => void;
+  dayNames: string[];
+  onEditWorkout: (workout: Workout, anchorRect: DOMRect) => void;
   onDuplicateWorkout: (workout: Workout) => void;
   onDeleteWorkout: (workout: Workout) => void;
   onAddWorkout: (date: string) => void;
+  isPast?: boolean;
 }
 
 export function DayCell({
   day,
   dayIndex,
+  dayNames,
   onEditWorkout,
   onDuplicateWorkout,
   onDeleteWorkout,
   onAddWorkout,
+  isPast,
 }: DayCellProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${day.dateKey}`,
@@ -37,6 +39,7 @@ export function DayCell({
         ...styles.cell,
         ...(day.isToday ? styles.todayCell : {}),
         ...(isOver ? styles.overCell : {}),
+        ...(isPast ? { opacity: 0.7 } : {}),
       }}
     >
       <div style={{
@@ -47,7 +50,7 @@ export function DayCell({
           ...styles.dayName,
           ...(day.isToday ? styles.todayText : {}),
         }}>
-          {DAY_NAMES[dayIndex]}
+          {dayNames[dayIndex]}
         </span>
         <span style={{
           ...styles.dayNum,

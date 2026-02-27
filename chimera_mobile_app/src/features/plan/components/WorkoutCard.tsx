@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { format, parseISO } from 'date-fns';
 import { COLORS, FONT, RADIUS, ACTIVITY_COLORS } from '@features/web-dashboard/styles';
@@ -6,42 +6,66 @@ import type { Workout } from '@domain/types';
 
 interface WorkoutCardProps {
   workout: Workout;
-  onEdit: (workout: Workout) => void;
+  onEdit: (workout: Workout, anchorRect: DOMRect) => void;
   onDuplicate: (workout: Workout) => void;
   onDelete: (workout: Workout) => void;
+  /** Render as overlay clone (elevated, no drag hooks) */
+  isOverlay?: boolean;
 }
 
-export function WorkoutCard({ workout, onEdit, onDuplicate, onDelete }: WorkoutCardProps) {
+export function WorkoutCard({ workout, onEdit, onDuplicate, onDelete, isOverlay }: WorkoutCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `workout-${workout.id}`,
     data: { type: 'workout', workout },
+    disabled: isOverlay,
   });
 
+  const cardRef = useRef<HTMLDivElement>(null);
   const borderColor = ACTIVITY_COLORS[workout.activity_type] || ACTIVITY_COLORS.default;
   const isCompleted = workout.status === 'completed';
   const isTentative = workout.status === 'tentative';
   const isCancelled = workout.status === 'cancelled';
 
+  // Ghost placeholder: original card while dragging
+  const isGhost = isDragging && !isOverlay;
+
   const style: React.CSSProperties = {
     ...styles.card,
     borderLeftColor: borderColor,
     borderLeftStyle: isTentative ? 'dashed' : 'solid',
-    opacity: isDragging ? 0.5 : isCancelled ? 0.4 : isCompleted ? 0.75 : isTentative ? 0.7 : 1,
-    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-    cursor: isDragging ? 'grabbing' : 'grab',
+    ...(isOverlay ? {
+      boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+      transform: 'scale(1.03)',
+      cursor: 'grabbing',
+      opacity: isCancelled ? 0.4 : isCompleted ? 0.75 : 1,
+    } : isGhost ? {
+      opacity: 0.3,
+      borderStyle: 'dashed',
+      borderWidth: 1,
+      borderColor: COLORS.textDim,
+    } : {
+      opacity: isCancelled ? 0.4 : isCompleted ? 0.75 : isTentative ? 0.7 : 1,
+      transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+      cursor: 'grab',
+    }),
   };
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    // Don't fire click if this was a drag
+    if (isDragging) return;
+    e.stopPropagation();
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (rect) onEdit(workout, rect);
+  }, [workout, onEdit, isDragging]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    // Simple context menu via prompt-style approach
-    // In production, replace with a proper dropdown
     const action = window.prompt(
-      `${workout.title}\n\n1 = Edit\n2 = Duplicate\n3 = Delete\n\nEnter number:`
+      `${workout.title}\n\n1 = Duplicate\n2 = Delete\n\nEnter number:`
     );
-    if (action === '1') onEdit(workout);
-    else if (action === '2') onDuplicate(workout);
-    else if (action === '3') onDelete(workout);
-  }, [workout, onEdit, onDuplicate, onDelete]);
+    if (action === '1') onDuplicate(workout);
+    else if (action === '2') onDelete(workout);
+  }, [workout, onDuplicate, onDelete]);
 
   const startTime = workout.start_time
     ? format(parseISO(workout.start_time), 'h:mm a')
@@ -55,11 +79,14 @@ export function WorkoutCard({ workout, onEdit, onDuplicate, onDelete }: WorkoutC
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }}
       style={style}
+      onClick={handleClick}
       onContextMenu={handleContextMenu}
-      {...attributes}
-      {...listeners}
+      {...(isOverlay ? {} : { ...attributes, ...listeners })}
     >
       <div style={styles.topRow}>
         <span style={styles.time}>{startTime}</span>
