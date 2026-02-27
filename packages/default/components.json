@@ -1,0 +1,89 @@
+{
+  "checkbox": {
+    "size": 22,
+    "borderRadius": 4,
+    "borderWidth": 2,
+    "borderColor": "border",
+    "checkedBackground": "primary",
+    "checkedBorderColor": "primary",
+    "checkmarkColor": "#ffffff",
+    "disabledOpacity": 0.4
+  },
+  "toggle": {
+    "trackWidth": 50,
+    "trackHeight": 30,
+    "thumbSize": 26,
+    "thumbInset": 2,
+    "trackOnColor": "primary",
+    "trackOffColor": "switchTrackOff",
+    "thumbColor": "#ffffff",
+    "disabledOpacity": 0.4
+  },
+  "button": {
+    "borderRadius": 12,
+    "paddingVertical": 14,
+    "paddingHorizontal": 20,
+    "variants": {
+      "primary": {
+        "background": "primary",
+        "text": "#ffffff",
+        "borderColor": "primary"
+      },
+      "secondary": {
+        "background": "card",
+        "text": "primary",
+        "borderColor": "border"
+      },
+      "destructive": {
+        "background": "danger",
+        "text": "#ffffff",
+        "borderColor": "danger"
+      },
+      "ghost": {
+        "background": "transparent",
+        "text": "primary",
+        "borderColor": "transparent"
+      }
+    },
+    "disabledOpacity": 0.5
+  },
+  "card": {
+    "background": "card",
+    "borderRadius": 12,
+    "borderWidth": 1,
+    "borderColor": "border",
+    "padding": 16
+  },
+  "input": {
+    "background": "card",
+    "borderRadius": 10,
+    "borderWidth": 1,
+    "borderColor": "border",
+    "focusBorderColor": "primary",
+    "textColor": "textPrimary",
+    "placeholderColor": "textSecondary",
+    "errorColor": "danger",
+    "paddingVertical": 12,
+    "paddingHorizontal": 14,
+    "fontSize": 16
+  },
+  "toast": {
+    "borderRadius": 12,
+    "paddingVertical": 14,
+    "paddingHorizontal": 18,
+    "variants": {
+      "success": {
+        "background": "primary",
+        "text": "#ffffff"
+      },
+      "error": {
+        "background": "danger",
+        "text": "#ffffff"
+      },
+      "info": {
+        "background": "card",
+        "text": "textPrimary"
+      }
+    }
+  }
+}

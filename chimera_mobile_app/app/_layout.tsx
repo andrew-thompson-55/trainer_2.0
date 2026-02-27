@@ -5,6 +5,8 @@ import 'react-native-reanimated';
 import { AuthProvider } from '../src/infrastructure/auth/auth-provider';
 import { ThemeProvider } from '../src/infrastructure/theme';
 import { PostHogProvider } from '@infra/analytics';
+import { ToastProvider } from '@/context/ToastContext';
+import { Toast } from '@/components/ui';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -19,19 +21,22 @@ export default function RootLayout() {
     <PostHogProvider>
       <AuthProvider>
         <ThemeProvider>
-          <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="add_workout" options={{ headerShown: false }} />
-              <Stack.Screen name="edit_workout" options={{ headerShown: false }} />
-              <Stack.Screen name="workout_details" options={{ headerShown: false }} />
-              <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-            </Stack>
-            <StatusBar style="auto" />
-          </NavThemeProvider>
+          <ToastProvider>
+            <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="add_workout" options={{ headerShown: false }} />
+                <Stack.Screen name="edit_workout" options={{ headerShown: false }} />
+                <Stack.Screen name="workout_details" options={{ headerShown: false }} />
+                <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+              </Stack>
+              <Toast />
+              <StatusBar style="auto" />
+            </NavThemeProvider>
+          </ToastProvider>
         </ThemeProvider>
       </AuthProvider>
     </PostHogProvider>

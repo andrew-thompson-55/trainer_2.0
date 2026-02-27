@@ -9,6 +9,7 @@ import config from '../../../../packages/default/config.json';
 import colors from '../../../../packages/default/colors.json';
 import strings from '../../../../packages/default/strings.json';
 import checkin from '../../../../packages/default/checkin.json';
+import components from '../../../../packages/default/components.json';
 
 export const pkg = {
   meta,
@@ -17,6 +18,7 @@ export const pkg = {
   colors,
   strings,
   checkin,
+  components,
 } as const;
 
 // Convenience re-exports for common access patterns
@@ -25,3 +27,4 @@ export type PackagePersona = typeof persona;
 export type PackageConfig = typeof config;
 export type PackageColors = typeof colors;
 export type PackageCheckin = typeof checkin;
+export type PackageComponents = typeof components;
