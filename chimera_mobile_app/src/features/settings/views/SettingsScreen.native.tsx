@@ -297,7 +297,7 @@ export default function SettingsScreen() {
   const handleResyncGcal = async () => {
     setGcalSyncing(true);
     try {
-      const res = await authFetch('/v1/integrations/gcal/resync', { method: 'POST' });
+      const res = await authFetch('/integrations/gcal/resync', { method: 'POST' });
       const data = await res.json();
       Alert.alert(
         "Sync Complete",
