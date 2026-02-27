@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Constants from 'expo-constants';
 import { useTheme, Typography } from '@infra/theme';
 import { useAuth } from '@infra/auth/auth-provider';
@@ -50,6 +51,8 @@ export default function SettingsScreen() {
   const [weightUnit, setWeightUnitState] = useState<WeightUnit>('kg');
   const [distanceUnit, setDistanceUnitState] = useState<DistanceUnit>('mi');
   const [weekStartDay, setWeekStartDayState] = useState<'monday' | 'sunday'>('monday');
+  const [defaultWorkoutTime, setDefaultWorkoutTime] = useState('06:00');
+  const [showWorkoutTimePicker, setShowWorkoutTimePicker] = useState(false);
   const [morningReminder, setMorningReminder] = useState(false);
   const [morningReminderTime, setMorningReminderTime] = useState('08:00');
   const [workoutReminder, setWorkoutReminder] = useState(false);
@@ -111,6 +114,7 @@ export default function SettingsScreen() {
       AsyncStorage.setItem(STORAGE_KEYS.WEIGHT_UNIT, s.weight_unit);
       setDistanceUnitState(s.distance_unit ?? 'mi');
       setWeekStartDayState(s.week_start_day ?? 'monday');
+      setDefaultWorkoutTime(s.default_workout_time ?? '06:00');
       setMorningReminder(s.morning_checkin_reminder ?? false);
       setMorningReminderTime(s.morning_checkin_reminder_time ?? '08:00');
       setWorkoutReminder(s.workout_update_reminder ?? false);
@@ -180,6 +184,17 @@ export default function SettingsScreen() {
   const handleSetWeekStartDay = async (day: 'monday' | 'sunday') => {
     setWeekStartDayState(day);
     saveSetting({ week_start_day: day });
+  };
+
+  const handleWorkoutTimeChange = (_event: any, selectedDate?: Date) => {
+    setShowWorkoutTimePicker(false);
+    if (selectedDate) {
+      const h = String(selectedDate.getHours()).padStart(2, '0');
+      const m = String(selectedDate.getMinutes()).padStart(2, '0');
+      const timeStr = `${h}:${m}`;
+      setDefaultWorkoutTime(timeStr);
+      saveSetting({ default_workout_time: timeStr });
+    }
   };
 
   const handleToggleNotification = async (
@@ -557,6 +572,33 @@ export default function SettingsScreen() {
             ))}
           </View>
         </View>
+
+        <View style={{ height: 12 }} />
+        <View style={[styles.row, { backgroundColor: colors.card }]}>
+          <View style={styles.rowLeft}>
+            <Ionicons name="time-outline" size={24} color={colors.primary} />
+            <Text style={[styles.rowText, { color: colors.textPrimary }]}>Default Workout Time</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.pill, { backgroundColor: colors.background, borderColor: colors.border }]}
+            onPress={() => setShowWorkoutTimePicker(true)}
+          >
+            <Text style={[styles.pillText, { color: colors.textPrimary }]}>{defaultWorkoutTime}</Text>
+          </TouchableOpacity>
+        </View>
+        {showWorkoutTimePicker && (
+          <DateTimePicker
+            value={(() => {
+              const [h, m] = defaultWorkoutTime.split(':').map(Number);
+              const d = new Date();
+              d.setHours(h, m, 0, 0);
+              return d;
+            })()}
+            mode="time"
+            display="default"
+            onChange={handleWorkoutTimeChange}
+          />
+        )}
 
         <View style={{ height: 12 }} />
         <View style={[styles.row, { backgroundColor: colors.card }]}>

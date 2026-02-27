@@ -34,6 +34,7 @@ async def build_agent_context(user_id: str) -> dict:
     context["target_race_date"] = settings.get("target_race_date")
     context["weekly_volume_target_hours"] = settings.get("weekly_volume_target_hours")
     context["preferred_workout_time"] = settings.get("preferred_workout_time")
+    context["default_workout_time"] = settings.get("default_workout_time", "06:00")
     context["injury_notes"] = settings.get("injury_notes")
     context["coach_notes"] = settings.get("coach_notes")
     context["strava_connected"] = bool(settings.get("strava_athlete_id"))
@@ -132,6 +133,8 @@ def format_context_for_prompt(ctx: dict) -> str:
         lines.append(f"WEEKLY VOLUME TARGET: {ctx['weekly_volume_target_hours']} hours")
     if ctx.get("preferred_workout_time"):
         lines.append(f"PREFERRED WORKOUT TIME: {ctx['preferred_workout_time']}")
+    if ctx.get("default_workout_time"):
+        lines.append(f"DEFAULT WORKOUT TIME: {ctx['default_workout_time']} (use when scheduling workouts unless athlete specifies otherwise)")
     if ctx.get("injury_notes"):
         lines.append(f"INJURY NOTES: {ctx['injury_notes']}")
     lines.append(f"STRAVA: {'Connected' if ctx.get('strava_connected') else 'Not connected'}")

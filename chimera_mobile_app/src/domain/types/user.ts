@@ -57,4 +57,7 @@ export interface UserSettings {
 
   // Calendar preferences
   week_start_day?: 'monday' | 'sunday';
+
+  // Default workout time
+  default_workout_time?: string;  // "HH:MM" format
 }

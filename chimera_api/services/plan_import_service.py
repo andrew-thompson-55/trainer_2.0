@@ -13,6 +13,7 @@ from typing import Any
 from db_client import supabase_admin
 from services import phase_service
 from services import gcal_service
+from services import user_settings_service
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +214,19 @@ async def _check_duplicate(user_id: str, entry_date: date, title: str) -> bool:
     return bool(resp.data)
 
 
-async def _create_workout_row(user_id: str, entry: dict, source: str = "import") -> dict:
+async def _get_default_workout_time(user_id: str) -> tuple[int, int]:
+    """Fetch user's default workout time setting, return (hour, minute)."""
+    try:
+        settings = await user_settings_service.get_user_settings(user_id)
+        time_str = settings.get("default_workout_time", "06:00")
+        parts = time_str.split(":")
+        return int(parts[0]), int(parts[1])
+    except Exception as e:
+        logger.warning(f"Failed to fetch default workout time: {e}")
+        return 6, 0
+
+
+async def _create_workout_row(user_id: str, entry: dict, source: str = "import", default_hour: int = 6, default_minute: int = 0) -> dict:
     """Build a planned_workouts row from a normalized entry."""
     entry_date = entry["_parsed_date"]
     duration_min = entry.get("duration") or 60
@@ -223,7 +236,7 @@ async def _create_workout_row(user_id: str, entry: dict, source: str = "import")
         except ValueError:
             duration_min = 60
 
-    start = datetime.combine(entry_date, datetime.min.time().replace(hour=8))
+    start = datetime.combine(entry_date, datetime.min.time().replace(hour=default_hour, minute=default_minute))
     end = start + timedelta(minutes=duration_min)
 
     # Determine activity type: explicit > inferred from title > other
@@ -304,6 +317,9 @@ async def import_plan(user_id: str, raw_input: Any) -> dict:
         except Exception as e:
             logger.warning(f"Failed to create phase '{phase_data['title']}': {e}")
 
+    # Fetch user's default workout time
+    default_hour, default_minute = await _get_default_workout_time(user_id)
+
     # Create workouts, checking for duplicates
     created = []
     skipped = []
@@ -316,7 +332,7 @@ async def import_plan(user_id: str, raw_input: Any) -> dict:
             skipped.append({"date": entry_date.isoformat(), "title": title, "reason": "duplicate"})
             continue
 
-        row = await _create_workout_row(user_id, entry)
+        row = await _create_workout_row(user_id, entry, default_hour=default_hour, default_minute=default_minute)
         try:
             resp = supabase_admin.table("planned_workouts").insert(row).execute()
             if resp.data:
@@ -361,6 +377,9 @@ async def import_system_format(user_id: str, data: dict) -> dict:
         except Exception as e:
             logger.warning(f"Failed to create phase from system format: {e}")
 
+    # Fetch user's default workout time
+    default_hour, default_minute = await _get_default_workout_time(user_id)
+
     created = []
     updated = []
     skipped = []
@@ -391,7 +410,7 @@ async def import_system_format(user_id: str, data: dict) -> dict:
                 .execute()
             )
 
-            row = await _create_workout_row(user_id, entry, source="reimport")
+            row = await _create_workout_row(user_id, entry, source="reimport", default_hour=default_hour, default_minute=default_minute)
 
             if existing.data:
                 # Update existing
@@ -433,7 +452,7 @@ async def import_system_format(user_id: str, data: dict) -> dict:
                 skipped.append({"date": entry_date.isoformat(), "title": title, "reason": "duplicate"})
                 continue
 
-            row = await _create_workout_row(user_id, entry, source="reimport")
+            row = await _create_workout_row(user_id, entry, source="reimport", default_hour=default_hour, default_minute=default_minute)
             try:
                 resp = supabase_admin.table("planned_workouts").insert(row).execute()
                 if resp.data:

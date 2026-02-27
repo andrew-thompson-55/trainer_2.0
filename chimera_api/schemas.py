@@ -124,6 +124,9 @@ class UserSettingsUpdate(BaseModel):
     # Activity filtering
     tracked_activity_types: Optional[list[str]] = None
 
+    # Default workout time
+    default_workout_time: Optional[str] = None
+
 
 class UserSettingsResponse(BaseModel):
     weight_unit: str = 'kg'
@@ -161,6 +164,9 @@ class UserSettingsResponse(BaseModel):
 
     # Activity filtering
     tracked_activity_types: Optional[list[str]] = None
+
+    # Default workout time
+    default_workout_time: str = '06:00'
 
 
 # --- Activity Stats Toggle ---

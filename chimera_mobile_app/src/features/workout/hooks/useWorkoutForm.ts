@@ -21,6 +21,7 @@ interface WorkoutFormValues {
 interface UseWorkoutFormOptions {
   initialValues?: Partial<WorkoutFormValues>;
   onSubmit: (data: WorkoutCreate) => Promise<void>;
+  defaultWorkoutTime?: string;  // "HH:MM" format
 }
 
 interface UseWorkoutFormReturn {
@@ -52,11 +53,20 @@ interface UseWorkoutFormReturn {
 export function useWorkoutForm({
   initialValues,
   onSubmit,
+  defaultWorkoutTime,
 }: UseWorkoutFormOptions): UseWorkoutFormReturn {
   // Form state
   const [title, setTitle] = useState(initialValues?.title || '');
   const [type, setType] = useState(initialValues?.type || config.defaultActivityType);
-  const [date, setDate] = useState(initialValues?.date || new Date());
+  const [date, setDate] = useState(() => {
+    if (initialValues?.date) return initialValues.date;
+    const now = new Date();
+    if (defaultWorkoutTime) {
+      const [h, m] = defaultWorkoutTime.split(':').map(Number);
+      now.setHours(h, m, 0, 0);
+    }
+    return now;
+  });
   const [duration, setDuration] = useState(initialValues?.duration || '60');
   const [description, setDescription] = useState(initialValues?.description || '');
 

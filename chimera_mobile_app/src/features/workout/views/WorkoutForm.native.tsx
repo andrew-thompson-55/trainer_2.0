@@ -20,9 +20,10 @@ interface WorkoutFormProps {
   submitLabel: string;
   headerTitle: string;
   onCancel: () => void;
+  defaultWorkoutTime?: string;
 }
 
-export const WorkoutForm = ({ initialValues, onSubmit, submitLabel, headerTitle, onCancel }: WorkoutFormProps) => {
+export const WorkoutForm = ({ initialValues, onSubmit, submitLabel, headerTitle, onCancel, defaultWorkoutTime }: WorkoutFormProps) => {
   const {
     title, setTitle,
     type, setType,
@@ -35,7 +36,7 @@ export const WorkoutForm = ({ initialValues, onSubmit, submitLabel, headerTitle,
     handleSubmit,
     onDateChange,
     onTimeChange,
-  } = useWorkoutForm({ initialValues, onSubmit });
+  } = useWorkoutForm({ initialValues, onSubmit, defaultWorkoutTime });
 
   return (
     <KeyboardAvoidingView 

@@ -189,6 +189,8 @@ async def get_user_settings_route(user_id: str = Depends(get_current_user)):
         strava_athlete_name=settings.get("strava_athlete_name"),
         # Activity filtering
         tracked_activity_types=settings.get("tracked_activity_types"),
+        # Default workout time
+        default_workout_time=settings.get("default_workout_time", "06:00"),
     )
 
 
