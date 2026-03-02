@@ -6,7 +6,7 @@ import { format, startOfWeek, addWeeks, addDays, parseISO, isSameWeek } from 'da
 import { authFetch } from '@infra/fetch/auth-fetch';
 import * as planApi from '@domain/api/plan';
 import type { Workout } from '@domain/types';
-import type { TrainingPhase, PlanTemplate, AgentAction, CalendarData } from '@domain/types/plan';
+import type { TrainingPhase, PlanTemplate, AgentAction, CalendarData, CalendarActivity } from '@domain/types/plan';
 
 export interface WeekData {
   weekStart: Date;
@@ -53,6 +53,7 @@ interface UseTrainingPlanReturn {
   deletePhase: (phaseId: string) => Promise<void>;
   applyTemplate: (templateId: string, startDate: string, detailLevel: 'full' | 'structure') => Promise<void>;
   revertAgentAction: (actionId: string) => Promise<void>;
+  activities: CalendarActivity[];
   refreshData: () => Promise<void>;
   refreshTemplates: () => Promise<void>;
   refreshAgentActions: () => Promise<void>;
@@ -124,6 +125,7 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
   useEffect(() => { totalWeeksRef.current = totalWeeks; }, [totalWeeks]);
 
   const [rawWorkouts, setRawWorkouts] = useState<Workout[]>([]);
+  const [rawActivities, setRawActivities] = useState<CalendarActivity[]>([]);
   const [phases, setPhases] = useState<TrainingPhase[]>([]);
   const [templates, setTemplates] = useState<PlanTemplate[]>([]);
   const [agentActions, setAgentActions] = useState<AgentAction[]>([]);
@@ -173,6 +175,11 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
           const newWorkouts = (data.workouts || []).filter((w: Workout) => !existingIds.has(w.id));
           return [...prev, ...newWorkouts];
         });
+        setRawActivities(prev => {
+          const existingIds = new Set(prev.map(a => a.id));
+          const newActivities = (data.activities || []).filter((a: CalendarActivity) => !existingIds.has(a.id));
+          return [...prev, ...newActivities];
+        });
         setPhases(prev => {
           const existingIds = new Set(prev.map(p => p.id));
           const newPhases = (data.phases || []).filter((p: TrainingPhase) => !existingIds.has(p.id));
@@ -180,6 +187,7 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
         });
       } else {
         setRawWorkouts(data.workouts || []);
+        setRawActivities(data.activities || []);
         setPhases(data.phases || []);
       }
     } catch (e: any) {
@@ -421,6 +429,7 @@ export function useTrainingPlan(options?: UseTrainingPlanOptions): UseTrainingPl
   return {
     weeks,
     phases,
+    activities: rawActivities,
     templates,
     agentActions,
     loading,

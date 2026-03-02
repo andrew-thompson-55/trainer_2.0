@@ -23,6 +23,7 @@ import { WorkoutCard } from '../components/WorkoutCard';
 import { WorkoutEditPopover } from '../components/WorkoutEditPopover';
 import { TrashZone } from '../components/TrashZone';
 import { SidePanel } from '../components/SidePanel';
+import { TrainingTimeline } from '../components/TrainingTimeline';
 import { TemplateDialog } from '../components/TemplateDialog';
 import { ImportModal } from '../components/ImportModal';
 import { authFetch } from '@infra/fetch/auth-fetch';
@@ -36,11 +37,13 @@ const DAY_NAMES_SUN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export default function PlanScreen() {
   const router = useRouter();
 
-  // Load user's week start day setting
+  // Load user settings
   const [weekStartDay, setWeekStartDay] = useState<0 | 1>(1);
+  const [distanceUnit, setDistanceUnit] = useState<'mi' | 'km'>('mi');
   useEffect(() => {
     userApi.getUserSettings(authFetch).then(s => {
       setWeekStartDay(s.week_start_day === 'sunday' ? 0 : 1);
+      if (s.distance_unit === 'km') setDistanceUnit('km');
     }).catch(() => {});
   }, []);
 
@@ -303,87 +306,102 @@ export default function PlanScreen() {
       />
 
       <div style={styles.body}>
-        <div
-          ref={plan.scrollContainerRef}
-          style={styles.main}
-        >
-          {/* Top sentinel for infinite scroll */}
-          <div ref={plan.topSentinelRef} style={{ height: 1 }} />
-
-          {/* Calendar grid with phase column */}
-          <DndContext
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' }}>
+          <div
+            ref={plan.scrollContainerRef}
+            style={styles.main}
           >
-            <div style={styles.gridWrapper}>
-              {/* Phase column */}
-              <PhaseColumn
-                phases={plan.phases}
-                weeks={plan.weeks}
-                weekRowHeight={WEEK_ROW_HEIGHT}
-                weekStartDay={weekStartDay}
-                onEditPhase={handleEditPhase}
-                onDeletePhase={handleDeletePhase}
-              />
+            {/* Top sentinel for infinite scroll */}
+            <div ref={plan.topSentinelRef} style={{ height: 1 }} />
 
-              {/* Week rows */}
-              <div style={styles.grid}>
-                {plan.weeks.map(week => (
-                  <div
-                    key={week.weekKey}
-                    ref={week.isCurrentWeek ? plan.currentWeekRef : undefined}
-                  >
-                    <WeekRow
-                      week={week}
-                      weekStartDay={weekStartDay}
-                      dayNames={dayNames}
-                      isCurrentWeek={week.isCurrentWeek}
-                      onEditWorkout={handleEditWorkout}
-                      onDuplicateWorkout={handleDuplicateWorkout}
-                      onDeleteWorkout={handleDeleteWorkoutCard}
-                      onAddWorkout={handleAddWorkout}
-                      onDuplicateWeek={handleDuplicateWeek}
-                      onClearWeek={handleClearWeek}
-                      onSaveTemplate={handleSaveTemplate}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Drag overlay - floats above everything */}
-            <DragOverlay
-              zIndex={9999}
-              dropAnimation={{
-                duration: 200,
-                easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
-              }}
+            {/* Calendar grid with phase column */}
+            <DndContext
+              sensors={sensors}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
             >
-              {activeWorkout ? (
-                <WorkoutCard
-                  workout={activeWorkout}
-                  isOverlay
-                  onEdit={() => {}}
-                  onDuplicate={() => {}}
-                  onDelete={() => {}}
+              <div style={styles.gridWrapper}>
+                {/* Phase column */}
+                <PhaseColumn
+                  phases={plan.phases}
+                  weeks={plan.weeks}
+                  weekRowHeight={WEEK_ROW_HEIGHT}
+                  weekStartDay={weekStartDay}
+                  onEditPhase={handleEditPhase}
+                  onDeletePhase={handleDeletePhase}
                 />
-              ) : null}
-            </DragOverlay>
 
-            <TrashZone active={isDragging} />
-          </DndContext>
+                {/* Week rows */}
+                <div style={styles.grid}>
+                  {plan.weeks.map(week => (
+                    <div
+                      key={week.weekKey}
+                      ref={week.isCurrentWeek ? plan.currentWeekRef : undefined}
+                    >
+                      <WeekRow
+                        week={week}
+                        weekStartDay={weekStartDay}
+                        dayNames={dayNames}
+                        isCurrentWeek={week.isCurrentWeek}
+                        onEditWorkout={handleEditWorkout}
+                        onDuplicateWorkout={handleDuplicateWorkout}
+                        onDeleteWorkout={handleDeleteWorkoutCard}
+                        onAddWorkout={handleAddWorkout}
+                        onDuplicateWeek={handleDuplicateWeek}
+                        onClearWeek={handleClearWeek}
+                        onSaveTemplate={handleSaveTemplate}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-          {/* Bottom sentinel for infinite scroll */}
-          <div ref={plan.bottomSentinelRef} style={{ height: 1 }} />
+              {/* Drag overlay - floats above everything */}
+              <DragOverlay
+                zIndex={9999}
+                dropAnimation={{
+                  duration: 200,
+                  easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+                }}
+              >
+                {activeWorkout ? (
+                  <WorkoutCard
+                    workout={activeWorkout}
+                    isOverlay
+                    onEdit={() => {}}
+                    onDuplicate={() => {}}
+                    onDelete={() => {}}
+                  />
+                ) : null}
+              </DragOverlay>
 
-          {/* Loading / Error */}
-          {plan.loading && (
-            <div style={styles.loading}>Loading...</div>
-          )}
-          {plan.error && (
-            <div style={styles.error}>{plan.error}</div>
-          )}
+              <TrashZone active={isDragging} />
+            </DndContext>
+
+            {/* Bottom sentinel for infinite scroll */}
+            <div ref={plan.bottomSentinelRef} style={{ height: 1 }} />
+
+            {/* Loading / Error */}
+            {plan.loading && (
+              <div style={styles.loading}>Loading...</div>
+            )}
+            {plan.error && (
+              <div style={styles.error}>{plan.error}</div>
+            )}
+          </div>
+
+          {/* Divider between calendar and timeline */}
+          <div style={{ borderTop: `1px solid ${COLORS.border}`, flexShrink: 0 }} />
+
+          {/* Training Timeline */}
+          <TrainingTimeline
+            weeks={plan.weeks}
+            phases={plan.phases}
+            activities={plan.activities}
+            distanceUnit={distanceUnit}
+            weekStartDay={weekStartDay}
+            onScrollToWeek={plan.jumpToDate}
+          />
         </div>
 
         {/* Side panel */}

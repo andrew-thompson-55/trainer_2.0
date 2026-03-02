@@ -48,6 +48,15 @@ export interface CalendarActivity {
   moving_time_seconds: number | null;
   planned_workout_id: string | null;
   source_type: string;
+  total_elevation_gain: number | null;
+}
+
+export interface TimelineWeekData {
+  weekStart: Date;
+  actualVolumeMi: number;
+  actualElevationFt: number;
+  isPast: boolean;
+  isCurrentWeek: boolean;
 }
 
 export interface CalendarData {

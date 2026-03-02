@@ -499,7 +499,7 @@ async def get_calendar_data(
     try:
         activities_resp = (
             supabase_admin.table("completed_activities")
-            .select("id, start_time, original_activity_type, distance_meters, moving_time_seconds, planned_workout_id, source_type")
+            .select("id, start_time, original_activity_type, distance_meters, moving_time_seconds, planned_workout_id, source_type, total_elevation_gain")
             .eq("user_id", user_id)
             .gte("start_time", start_str)
             .lte("start_time", end_str)
