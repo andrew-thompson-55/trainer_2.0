@@ -2,7 +2,7 @@
 // Renders below the calendar grid on the Plan page with pan/zoom interactions
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { format, differenceInCalendarWeeks, startOfWeek } from 'date-fns';
+import { format, startOfWeek, addDays, getWeek } from 'date-fns';
 import { COLORS, FONT } from '@features/web-dashboard/styles';
 import { useTimelineData } from '../hooks/useTimelineData';
 import type { WeekData } from '../hooks/useTrainingPlan';
@@ -43,6 +43,8 @@ const BAR_FUTURE_OPACITY = 0.2;
 const ELEVATION_COLOR = '#a855f7';
 const TODAY_LINE_COLOR = '#f1f5f9';
 const RACE_LINE_COLOR = '#f97316';
+const DRAG_THRESHOLD = 5;
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
 export function TrainingTimeline({
   weeks,
@@ -59,7 +61,8 @@ export function TrainingTimeline({
   }));
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef<{ x: number; center: Date } | null>(null);
+  const dragStartRef = useRef<{ x: number; center: Date; moved: boolean } | null>(null);
+  const specialClickRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(800);
 
@@ -84,39 +87,62 @@ export function TrainingTimeline({
   const chartWidth = containerWidth - CHART_PADDING.left - CHART_PADDING.right;
   const chartHeight = EXPANDED_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom - PHASE_STRIP_HEIGHT;
 
-  // Visible week range
-  const visibleRange = useMemo(() => {
-    if (!weeks.length) return { startIdx: 0, endIdx: 0 };
-    const halfVisible = viewport.weeksVisible / 2;
-    const centerWeekStart = startOfWeek(viewport.center, { weekStartsOn: weekStartDay });
+  // Date-based viewport range (center ± half range)
+  const halfRangeMs = (viewport.weeksVisible / 2) * MS_PER_WEEK;
+  const leftEdgeMs = viewport.center.getTime() - halfRangeMs;
+  const rightEdgeMs = viewport.center.getTime() + halfRangeMs;
+  const totalMs = viewport.weeksVisible * MS_PER_WEEK;
 
-    // Find index of center week
-    let centerIdx = 0;
-    let minDiff = Infinity;
-    for (let i = 0; i < weeks.length; i++) {
-      const diff = Math.abs(weeks[i].weekStart.getTime() - centerWeekStart.getTime());
-      if (diff < minDiff) {
-        minDiff = diff;
-        centerIdx = i;
+  // Convert a date to an X pixel position
+  const dateToX = (date: Date) => {
+    return CHART_PADDING.left + ((date.getTime() - leftEdgeMs) / totalMs) * chartWidth;
+  };
+
+  // Bar width based on zoom level
+  const barWidth = Math.max(4, (chartWidth / viewport.weeksVisible) * 0.7);
+
+  // Filter timeline weeks to those visible in the current viewport
+  const visibleWeekIndices = useMemo(() => {
+    const indices: number[] = [];
+    for (let i = 0; i < timelineWeeks.length; i++) {
+      const ws = timelineWeeks[i].weekStart.getTime();
+      const we = ws + MS_PER_WEEK;
+      if (we >= leftEdgeMs && ws <= rightEdgeMs) {
+        indices.push(i);
       }
     }
+    return indices;
+  }, [timelineWeeks, leftEdgeMs, rightEdgeMs]);
 
-    const startIdx = Math.max(0, Math.round(centerIdx - halfVisible));
-    const endIdx = Math.min(weeks.length - 1, Math.round(centerIdx + halfVisible));
-    return { startIdx, endIdx };
-  }, [viewport.center, viewport.weeksVisible, weeks, weekStartDay]);
+  // Week boundary separators
+  const weekBoundaries = useMemo(() => {
+    let current = startOfWeek(new Date(leftEdgeMs - MS_PER_WEEK), { weekStartsOn: weekStartDay });
+    const boundaries: { date: Date; weekNumber: number; label: string }[] = [];
+    const rightMs = rightEdgeMs;
+    while (current.getTime() <= rightMs) {
+      if (current.getTime() >= leftEdgeMs) {
+        boundaries.push({
+          date: new Date(current),
+          weekNumber: getWeek(current, { weekStartsOn: weekStartDay }),
+          label: format(current, 'MMM d'),
+        });
+      }
+      current = addDays(current, 7);
+    }
+    return boundaries;
+  }, [leftEdgeMs, rightEdgeMs, weekStartDay]);
 
-  const visibleWeekCount = visibleRange.endIdx - visibleRange.startIdx + 1;
-  const barWidth = Math.max(4, (chartWidth / visibleWeekCount) * 0.7);
-  const barGap = chartWidth / visibleWeekCount;
+  // Label density for week separators
+  const sepLabelInterval = useMemo(() => {
+    if (viewport.weeksVisible <= 12) return 1;
+    if (viewport.weeksVisible <= 24) return 2;
+    if (viewport.weeksVisible <= 36) return 4;
+    return 8;
+  }, [viewport.weeksVisible]);
 
   // Scale helpers
   const volumeScale = maxVolume > 0 ? chartHeight * 0.85 / maxVolume : 0;
   const elevationScale = maxElevation > 0 ? chartHeight * 0.85 / maxElevation : 0;
-
-  const getBarX = useCallback((idx: number) => {
-    return CHART_PADDING.left + (idx - visibleRange.startIdx) * barGap + (barGap - barWidth) / 2;
-  }, [visibleRange.startIdx, barGap, barWidth]);
 
   // Wheel zoom
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -128,46 +154,58 @@ export function TrainingTimeline({
     });
   }, []);
 
-  // Mouse drag pan
+  // Mouse interactions with drag/click disambiguation
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    setIsDragging(true);
-    dragStartRef.current = { x: e.clientX, center: viewport.center };
+    dragStartRef.current = { x: e.clientX, center: viewport.center, moved: false };
   }, [viewport.center]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging || !dragStartRef.current) return;
-    const dx = e.clientX - dragStartRef.current.x;
-    const weeksPerPixel = viewport.weeksVisible / chartWidth;
-    const weeksDelta = -dx * weeksPerPixel;
-    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-    const newCenter = new Date(dragStartRef.current.center.getTime() + weeksDelta * msPerWeek);
-    setViewport(prev => ({ ...prev, center: newCenter }));
-  }, [isDragging, viewport.weeksVisible, chartWidth]);
+    const start = dragStartRef.current;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    if (Math.abs(dx) >= DRAG_THRESHOLD) {
+      start.moved = true;
+      setIsDragging(true);
+      const rangeMs = viewport.weeksVisible * MS_PER_WEEK;
+      const msPerPx = rangeMs / chartWidth;
+      const newCenter = new Date(start.center.getTime() - dx * msPerPx);
+      setViewport(prev => ({ ...prev, center: newCenter }));
+    }
+  }, [viewport.weeksVisible, chartWidth]);
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    const start = dragStartRef.current;
+    if (start && !start.moved && !specialClickRef.current) {
+      // Click — convert X position to a date
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        const clickX = e.clientX - rect.left - CHART_PADDING.left;
+        const halfMs = (viewport.weeksVisible / 2) * MS_PER_WEEK;
+        const left = viewport.center.getTime() - halfMs;
+        const range = viewport.weeksVisible * MS_PER_WEEK;
+        const clickedDate = new Date(left + (clickX / chartWidth) * range);
+
+        if (e.ctrlKey || e.metaKey) {
+          // Extend viewport to include clicked date
+          const diff = Math.abs(clickedDate.getTime() - viewport.center.getTime());
+          const weeksToFit = Math.ceil(diff / MS_PER_WEEK) * 2 + 4;
+          setViewport(prev => ({ ...prev, weeksVisible: Math.min(MAX_WEEKS_VISIBLE, Math.max(prev.weeksVisible, weeksToFit)) }));
+        } else {
+          // Center viewport on clicked date + scroll calendar
+          setViewport(prev => ({ ...prev, center: clickedDate }));
+          onScrollToWeek(clickedDate);
+        }
+      }
+    }
+    specialClickRef.current = false;
     setIsDragging(false);
     dragStartRef.current = null;
-  }, []);
+  }, [viewport.center, viewport.weeksVisible, chartWidth, onScrollToWeek]);
 
-  // Click on week bar
-  const handleBarClick = useCallback((weekStart: Date, e: React.MouseEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      // Extend viewport to include this week
-      setViewport(prev => {
-        const currentCenter = prev.center;
-        const diff = Math.abs(differenceInCalendarWeeks(weekStart, currentCenter, { weekStartsOn: weekStartDay }));
-        const newVisible = Math.max(prev.weeksVisible, diff * 2 + 4);
-        return { ...prev, weeksVisible: Math.min(MAX_WEEKS_VISIBLE, newVisible) };
-      });
-    } else {
-      setViewport(prev => ({ ...prev, center: weekStart }));
-      onScrollToWeek(weekStart);
-    }
-  }, [onScrollToWeek, weekStartDay]);
-
-  // Click on phase strip
+  // Phase click — fit entire phase in view
   const handlePhaseClick = useCallback((startIdx: number, endIdx: number, e: React.MouseEvent) => {
+    specialClickRef.current = true;
     const midIdx = Math.floor((startIdx + endIdx) / 2);
     if (midIdx >= 0 && midIdx < weeks.length) {
       const midDate = weeks[midIdx].weekStart;
@@ -184,21 +222,28 @@ export function TrainingTimeline({
     }
   }, [weeks, onScrollToWeek]);
 
-  // Click on race marker
+  // Race marker click
   const handleRaceClick = useCallback((weekIdx: number, e: React.MouseEvent) => {
+    specialClickRef.current = true;
     if (weekIdx >= 0 && weekIdx < weeks.length) {
       const raceDate = weeks[weekIdx].weekStart;
       if (e.ctrlKey || e.metaKey) {
-        setViewport(prev => {
-          const diff = Math.abs(differenceInCalendarWeeks(raceDate, prev.center, { weekStartsOn: weekStartDay }));
-          return { ...prev, weeksVisible: Math.min(MAX_WEEKS_VISIBLE, Math.max(prev.weeksVisible, diff * 2 + 4)) };
-        });
+        const diff = Math.abs(raceDate.getTime() - viewport.center.getTime());
+        const weeksToFit = Math.ceil(diff / MS_PER_WEEK) * 2 + 4;
+        setViewport(prev => ({ ...prev, weeksVisible: Math.min(MAX_WEEKS_VISIBLE, Math.max(prev.weeksVisible, weeksToFit)) }));
       } else {
         setViewport(prev => ({ ...prev, center: raceDate }));
       }
       onScrollToWeek(raceDate);
     }
-  }, [weeks, onScrollToWeek, weekStartDay]);
+  }, [weeks, onScrollToWeek, viewport.center]);
+
+  // Week separator click
+  const handleWeekSepClick = useCallback((weekDate: Date) => {
+    specialClickRef.current = true;
+    setViewport(prev => ({ ...prev, center: weekDate }));
+    onScrollToWeek(weekDate);
+  }, [onScrollToWeek]);
 
   // Tooltip
   const handleBarHover = useCallback((e: React.MouseEvent, weekIdx: number) => {
@@ -219,9 +264,8 @@ export function TrainingTimeline({
 
   const handleBarLeave = useCallback(() => setTooltip(null), []);
 
-  // Find today's position
+  // Find today week index (for collapsed view progress text)
   const todayIdx = useMemo(() => {
-    const now = new Date();
     for (let i = 0; i < weeks.length; i++) {
       if (weeks[i].isCurrentWeek) return i;
     }
@@ -238,21 +282,26 @@ export function TrainingTimeline({
     return null;
   }, [phaseSegments, todayIdx]);
 
-  // X-axis label density
-  const labelInterval = useMemo(() => {
-    if (visibleWeekCount <= 8) return 1;
-    if (visibleWeekCount <= 16) return 2;
-    if (visibleWeekCount <= 32) return 4;
-    return 8;
-  }, [visibleWeekCount]);
-
-  // Compute week progress text
+  // Week progress text for collapsed bar
   const weekProgress = useMemo(() => {
     if (!weeks.length) return '';
     const total = weeks.length;
     const currentIdx = todayIdx >= 0 ? todayIdx + 1 : '?';
     return `Week ${currentIdx} of ${total}`;
   }, [weeks.length, todayIdx]);
+
+  // X-axis label interval
+  const labelInterval = useMemo(() => {
+    if (viewport.weeksVisible <= 8) return 1;
+    if (viewport.weeksVisible <= 16) return 2;
+    if (viewport.weeksVisible <= 32) return 4;
+    return 8;
+  }, [viewport.weeksVisible]);
+
+  // Today position
+  const now = new Date();
+  const todayX = dateToX(now);
+  const todayVisible = todayX >= CHART_PADDING.left && todayX <= containerWidth - CHART_PADDING.right;
 
   if (!weeks.length) return null;
 
@@ -302,23 +351,34 @@ export function TrainingTimeline({
             height: EXPANDED_HEIGHT,
             backgroundColor: COLORS.bg,
             position: 'relative',
-            cursor: isDragging ? 'grabbing' : 'grab',
+            cursor: isDragging ? 'grabbing' : 'pointer',
           }}
           onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={() => { handleMouseUp(); handleBarLeave(); }}
+          onMouseLeave={() => { handleMouseUp({} as React.MouseEvent); handleBarLeave(); }}
         >
           <svg
             width={containerWidth}
             height={EXPANDED_HEIGHT}
             style={{ display: 'block' }}
           >
+            {/* Hover styles for week separators */}
+            <defs>
+              <style>{`
+                .week-sep rect.sep-line { transition: fill 0.15s; }
+                .week-sep text { transition: fill 0.15s; }
+                .week-sep:hover rect.sep-line { fill: #334155; }
+                .week-sep:hover text { fill: #94a3b8; }
+              `}</style>
+            </defs>
+
             {/* Phase strip at top */}
             {phaseSegments.map(seg => {
-              const x1 = getBarX(Math.max(seg.startWeekIdx, visibleRange.startIdx));
-              const x2 = getBarX(Math.min(seg.endWeekIdx, visibleRange.endIdx)) + barWidth;
+              if (seg.startWeekIdx >= weeks.length || seg.endWeekIdx >= weeks.length) return null;
+              const x1 = dateToX(weeks[seg.startWeekIdx].weekStart);
+              const x2 = dateToX(addDays(weeks[seg.endWeekIdx].weekStart, 7));
               if (x2 < CHART_PADDING.left || x1 > containerWidth - CHART_PADDING.right) return null;
               const clampedX1 = Math.max(CHART_PADDING.left, x1);
               const clampedX2 = Math.min(containerWidth - CHART_PADDING.right, x2);
@@ -340,6 +400,60 @@ export function TrainingTimeline({
               );
             })}
 
+            {/* Week boundary separators */}
+            {weekBoundaries.map((wb, i) => {
+              const x = dateToX(wb.date);
+              if (x < CHART_PADDING.left || x > containerWidth - CHART_PADDING.right) return null;
+              const showLabel = i % sepLabelInterval === 0;
+              const chartTop = CHART_PADDING.top + PHASE_STRIP_HEIGHT;
+              return (
+                <g
+                  key={i}
+                  className="week-sep"
+                  style={{ cursor: 'pointer' }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); handleWeekSepClick(wb.date); }}
+                >
+                  {/* Vertical separator line */}
+                  <rect
+                    className="sep-line"
+                    x={x - 1}
+                    y={chartTop}
+                    width={2}
+                    height={chartHeight}
+                    fill="#1e293b"
+                  />
+                  {showLabel && (
+                    <>
+                      {/* Date label at top */}
+                      <text
+                        x={x + 4}
+                        y={chartTop - 2}
+                        fill="#475569"
+                        fontSize={8}
+                        fontFamily={FONT.mono}
+                      >
+                        {wb.label}
+                      </text>
+                      {/* Week number rotated vertically */}
+                      <text
+                        x={x + 1}
+                        y={chartTop + 14}
+                        fill="#1e293b"
+                        fontSize={9}
+                        fontFamily={FONT.mono}
+                        opacity={0.5}
+                        transform={`rotate(90, ${x + 1}, ${chartTop + 14})`}
+                        textAnchor="start"
+                      >
+                        WK {wb.weekNumber}
+                      </text>
+                    </>
+                  )}
+                </g>
+              );
+            })}
+
             {/* Horizontal gridlines */}
             {maxVolume > 0 && [0.25, 0.5, 0.75].map(frac => {
               const y = CHART_PADDING.top + PHASE_STRIP_HEIGHT + chartHeight - (chartHeight * 0.85 * frac);
@@ -358,9 +472,9 @@ export function TrainingTimeline({
             })}
 
             {/* Volume bars */}
-            {timelineWeeks.map((tw, i) => {
-              if (i < visibleRange.startIdx || i > visibleRange.endIdx) return null;
-              const x = getBarX(i);
+            {visibleWeekIndices.map(i => {
+              const tw = timelineWeeks[i];
+              const x = dateToX(tw.weekStart);
               const barHeight = tw.actualVolumeMi * volumeScale;
               const barY = CHART_PADDING.top + PHASE_STRIP_HEIGHT + chartHeight - barHeight;
               const opacity = tw.isPast || tw.isCurrentWeek ? BAR_PAST_OPACITY : BAR_FUTURE_OPACITY;
@@ -375,8 +489,6 @@ export function TrainingTimeline({
                   rx={2}
                   fill={BAR_COLOR}
                   opacity={opacity}
-                  style={{ cursor: 'pointer' }}
-                  onClick={(e) => { e.stopPropagation(); handleBarClick(tw.weekStart, e); }}
                   onMouseMove={(e) => handleBarHover(e, i)}
                   onMouseLeave={handleBarLeave}
                 />
@@ -386,11 +498,11 @@ export function TrainingTimeline({
             {/* Elevation line (past only in v1) */}
             {maxElevation > 0 && (() => {
               const points: string[] = [];
-              for (let i = visibleRange.startIdx; i <= visibleRange.endIdx; i++) {
+              for (const i of visibleWeekIndices) {
                 const tw = timelineWeeks[i];
-                if (!tw || (!tw.isPast && !tw.isCurrentWeek)) continue;
+                if (!tw.isPast && !tw.isCurrentWeek) continue;
                 if (tw.actualElevationFt === 0) continue;
-                const x = getBarX(i) + barWidth / 2;
+                const x = dateToX(tw.weekStart) + barWidth / 2;
                 const y = CHART_PADDING.top + PHASE_STRIP_HEIGHT + chartHeight - (tw.actualElevationFt * elevationScale);
                 points.push(`${x},${y}`);
               }
@@ -408,19 +520,19 @@ export function TrainingTimeline({
             })()}
 
             {/* Today line */}
-            {todayIdx >= visibleRange.startIdx && todayIdx <= visibleRange.endIdx && (
+            {todayVisible && (
               <>
                 <line
-                  x1={getBarX(todayIdx) + barWidth / 2}
+                  x1={todayX}
                   y1={CHART_PADDING.top + PHASE_STRIP_HEIGHT - 4}
-                  x2={getBarX(todayIdx) + barWidth / 2}
+                  x2={todayX}
                   y2={CHART_PADDING.top + PHASE_STRIP_HEIGHT + chartHeight + 4}
                   stroke={TODAY_LINE_COLOR}
                   strokeWidth={2}
                   opacity={0.6}
                 />
                 <text
-                  x={getBarX(todayIdx) + barWidth / 2}
+                  x={todayX}
                   y={CHART_PADDING.top + PHASE_STRIP_HEIGHT - 6}
                   textAnchor="middle"
                   fill={TODAY_LINE_COLOR}
@@ -436,12 +548,14 @@ export function TrainingTimeline({
 
             {/* Race markers */}
             {races.map(race => {
-              if (race.weekIdx < visibleRange.startIdx || race.weekIdx > visibleRange.endIdx) return null;
-              const x = getBarX(race.weekIdx) + barWidth / 2;
+              if (race.weekIdx >= weeks.length) return null;
+              const x = dateToX(weeks[race.weekIdx].weekStart) + barWidth / 2;
+              if (x < CHART_PADDING.left || x > containerWidth - CHART_PADDING.right) return null;
               return (
                 <g
                   key={race.phase.id}
                   style={{ cursor: 'pointer' }}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => { e.stopPropagation(); handleRaceClick(race.weekIdx, e); }}
                 >
                   <line
@@ -470,10 +584,10 @@ export function TrainingTimeline({
             })}
 
             {/* X-axis date labels */}
-            {timelineWeeks.map((tw, i) => {
-              if (i < visibleRange.startIdx || i > visibleRange.endIdx) return null;
-              if ((i - visibleRange.startIdx) % labelInterval !== 0) return null;
-              const x = getBarX(i) + barWidth / 2;
+            {visibleWeekIndices.map((i, arrIdx) => {
+              if (arrIdx % labelInterval !== 0) return null;
+              const tw = timelineWeeks[i];
+              const x = dateToX(tw.weekStart) + barWidth / 2;
               return (
                 <text
                   key={`label-${i}`}
