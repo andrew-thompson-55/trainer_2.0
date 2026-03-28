@@ -5,7 +5,7 @@ from uuid import UUID
 
 from db_client import supabase_admin
 from services import workout_service, gcal_service
-from services import phase_service, template_service
+from services import phase_service, template_service, race_service
 from schemas import WorkoutCreate
 from fastapi import HTTPException
 
@@ -511,8 +511,16 @@ async def get_calendar_data(
         logger.error(f"⚠️ Failed to fetch activities for calendar: {e}")
         activities = []
 
+    # Fetch races in range
+    try:
+        races = await race_service.get_races(user_id, start.isoformat(), end.isoformat())
+    except Exception as e:
+        logger.error(f"⚠️ Failed to fetch races for calendar: {e}")
+        races = []
+
     return {
         "phases": phases,
         "workouts": workouts,
         "activities": activities,
+        "races": races,
     }

@@ -32,5 +32,25 @@
     "plannedEventColorId": "6",
     "completedEventColorId": "10",
     "eventEmoji": "\ud83c\udfcb\ufe0f"
+  },
+  "periodization": {
+    "A_race": {
+      "taper_weeks": 2,
+      "recovery_weeks": 1,
+      "taper_description": "Reduce volume 40-60%, maintain intensity. Key sessions only.",
+      "recovery_description": "Easy effort only. Rebuild aerobic base."
+    },
+    "B_race": {
+      "taper_days": 3,
+      "recovery_days": 2,
+      "taper_description": "Light sharpening. Reduce volume 20%, keep one quality session.",
+      "recovery_description": "Easy day(s) before resuming plan."
+    },
+    "C_race": {
+      "taper_days": 0,
+      "recovery_days": 0,
+      "description": "Race-pace effort within normal training. No plan modification."
+    },
+    "phase_philosophy": "Progressive overload with 3:1 load-to-recovery ratio. Build volume before intensity. Peak specificity in final build phase before taper."
   }
 }
