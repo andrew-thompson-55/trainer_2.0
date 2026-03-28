@@ -6,9 +6,10 @@ from services import gcal_service
 from fastapi import HTTPException
 
 
-async def create_workout(workout: WorkoutCreate, user_id: str) -> dict:
+async def create_workout(workout: WorkoutCreate, user_id: str, source: str = "manual") -> dict:
     data = workout.model_dump()
     data["user_id"] = user_id
+    data["is_pinned"] = source == "manual"
 
     # Convert datetimes to ISO strings for Supabase
     data["start_time"] = data["start_time"].isoformat()
@@ -59,7 +60,11 @@ async def get_workout(workout_id: UUID, user_id: str) -> dict:
     return response.data
 
 
-async def update_workout(workout_id: UUID, updates: dict, user_id: str) -> dict:
+async def update_workout(workout_id: UUID, updates: dict, user_id: str, source: str = "manual") -> dict:
+    # Auto-pin when user manually edits
+    if source == "manual":
+        updates["is_pinned"] = True
+
     # Ensure datetimes in updates are strings if they exist
     if "start_time" in updates and hasattr(updates["start_time"], "isoformat"):
         updates["start_time"] = updates["start_time"].isoformat()

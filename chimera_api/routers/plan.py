@@ -15,9 +15,11 @@ from schemas import (
     WeekActionRequest,
     SaveWeekTemplateRequest,
     ApplyTemplateRequest,
+    RaceCreate,
+    RaceUpdate,
 )
 from db_client import supabase_admin
-from services import plan_action_service, phase_service, template_service, plan_import_service
+from services import plan_action_service, phase_service, template_service, plan_import_service, race_service
 
 logger = logging.getLogger(__name__)
 
@@ -219,6 +221,43 @@ async def apply_template(
     return await plan_action_service.apply_template(
         str(template_id), body.start_date, body.detail_level, user_id
     )
+
+
+# --- Race CRUD ---
+
+@router.get("/races")
+async def get_races(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user_id: str = Depends(get_current_user),
+):
+    return await race_service.get_races(user_id, start_date, end_date)
+
+
+@router.post("/races")
+async def create_race(
+    body: RaceCreate,
+    user_id: str = Depends(get_current_user),
+):
+    return await race_service.create_race(body.model_dump(exclude_unset=True), user_id)
+
+
+@router.patch("/races/{race_id}")
+async def update_race(
+    race_id: UUID,
+    body: RaceUpdate,
+    user_id: str = Depends(get_current_user),
+):
+    return await race_service.update_race(str(race_id), body.model_dump(exclude_unset=True), user_id)
+
+
+@router.delete("/races/{race_id}")
+async def delete_race(
+    race_id: UUID,
+    user_id: str = Depends(get_current_user),
+):
+    await race_service.delete_race(str(race_id), user_id)
+    return {"status": "deleted"}
 
 
 # --- Agent Action Log ---

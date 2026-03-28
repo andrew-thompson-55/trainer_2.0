@@ -213,6 +213,8 @@ class PhaseCreate(BaseModel):
     color: Optional[str] = None
     sort_order: int = 0
     notes: Optional[str] = None
+    intensity_modifier: Optional[float] = None
+    frequency_modifier: Optional[float] = None
 
 
 class PhaseUpdate(BaseModel):
@@ -224,6 +226,8 @@ class PhaseUpdate(BaseModel):
     color: Optional[str] = None
     sort_order: Optional[int] = None
     notes: Optional[str] = None
+    intensity_modifier: Optional[float] = None
+    frequency_modifier: Optional[float] = None
 
 
 # --- Plan Template Models ---
@@ -269,3 +273,22 @@ class PlanExportResponse(BaseModel):
     distance_unit: str = "mi"
     phases: list[dict] = []
     workouts: list[dict] = []
+
+
+# --- Race Models ---
+class RaceCreate(BaseModel):
+    name: str
+    date: date_type
+    race_type: Literal["A", "B", "C"]
+    distance: Optional[str] = None
+    url: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class RaceUpdate(BaseModel):
+    name: Optional[str] = None
+    date: Optional[date_type] = None
+    race_type: Optional[Literal["A", "B", "C"]] = None
+    distance: Optional[str] = None
+    url: Optional[str] = None
+    notes: Optional[str] = None
